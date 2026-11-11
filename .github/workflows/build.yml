@@ -21,4 +21,4 @@ jobs:
       - name: Build, test and stage without publishing credentials
         run: ./gradlew --no-daemon :common:publishReleasePublicationToStagingRepository :library:publishReleasePublicationToStagingRepository :ffmpeg:publishReleasePublicationToStagingRepository :library:testReleaseUnitTest
       - name: Verify wrapper publication and engine resource binding
-        run: python3 scripts/verify-publication.py --repository build/staging-deploy --group io.github.frpboy.youtubedl-android --version 0.1.0-alpha.7-staging.1 --engine-sha256 "$(cat engine-sha256.txt)"
+        run: python3 scripts/verify-publication.py --repository build/staging-deploy --group io.github.frpboy.youtubedl-android --version 0.1.0-alpha.7-staging.2 --engine-sha256 "$(cat engine-sha256.txt)" --engine-checker-sha256 "$(cat engine-checker-sha256.txt)"

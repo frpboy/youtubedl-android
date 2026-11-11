@@ -58,6 +58,7 @@ object YoutubeDL {
     fun init_ytdlp(appContext: Context, ytdlpDir: File) {
         if (!ytdlpDir.exists()) ytdlpDir.mkdirs()
         val ytdlpBinary = File(ytdlpDir, ytdlpBin)
+        VerifiedEngineReplacement.requireNoIncompleteUpdate(ytdlpBinary)
         if (!ytdlpBinary.exists()) {
             try {
                 val inputStream =
@@ -70,34 +71,81 @@ object YoutubeDL {
         }
     }
 
-    @Throws(YoutubeDLException::class)
-    fun initPython(appContext: Context, pythonDir: File) {
-        val pythonLib = File(binDir, pythonLibName)
-        // using size of lib as version
-        val pythonSize = pythonLib.length().toString()
-        if (!pythonDir.exists() || shouldUpdatePython(appContext, pythonSize)) {
-            FileUtils.deleteQuietly(pythonDir)
-            pythonDir.mkdirs()
-            try {
-                unzip(pythonLib, pythonDir)
-            } catch (e: Exception) {
-                FileUtils.deleteQuietly(pythonDir)
-                throw YoutubeDLException("failed to initialize", e)
-            }
-            updatePython(appContext, pythonSize)
+    /** Bind preferences only after the app has verified its installed bundled engine bytes. */
+    fun recordVerifiedEngineVersion(appContext: Context, version: String) {
+        YoutubeDLUpdater.updateSharedPrefs(appContext, version, version)
+    }
+
+    fun recoverInterruptedEngine(appContext: Context, assetPath: String, pinnedSha256: String): Boolean {
+        val installed = File(appContext.noBackupFilesDir, "$baseName/$ytdlpDirName/$ytdlpBin")
+        return VerifiedEngineReplacement.recover(installed, pinnedSha256, pinnedAsset = { stage ->
+            appContext.assets.open(assetPath).use { input -> stage.outputStream().use { input.copyTo(it) } }
+        }) != null
+    }
+
+    fun verifyRecoveredEngine(appContext: Context, assetPath: String, pinnedSha256: String, pinnedVersion: String): String {
+        val installed = checkNotNull(ytdlpPath)
+        return try {
+            verifyRuntimeEngine(appContext, installed, "*")
+        } catch (_: Exception) {
+            // A byte-valid retained engine may still be incompatible. Restore the owned pinned asset.
+            VerifiedEngineReplacement.replace(installed, pinnedSha256, download = { stage ->
+                appContext.assets.open(assetPath).use { input -> stage.outputStream().use { input.copyTo(it) } }
+            }, validate = { candidate -> verifyRuntimeEngine(appContext, candidate, pinnedVersion) })
+            pinnedVersion
         }
     }
 
-    private fun shouldUpdatePython(appContext: Context, version: String): Boolean {
-        return version != SharedPrefsHelper[appContext, pythonLibVersion]
+    internal fun verifyRuntimeEngine(appContext: Context, candidate: File, expectedVersion: String): String {
+        val work = File.createTempFile("seali-engine-check-", ".py", appContext.cacheDir)
+        val log = File.createTempFile("seali-engine-check-", ".log", appContext.cacheDir)
+        try {
+            appContext.assets.open("seali-engine/verify-runtime-engine.py").use { input ->
+                work.outputStream().use { input.copyTo(it) }
+            }
+            val builder = ProcessBuilder(
+                checkNotNull(pythonPath).absolutePath, work.absolutePath, candidate.absolutePath,
+                File(checkNotNull(binDir), "libqjs.so").absolutePath, expectedVersion,
+            ).redirectErrorStream(true).redirectOutput(log)
+            builder.environment().apply {
+                this["LD_LIBRARY_PATH"] = ENV_LD_LIBRARY_PATH
+                this["SSL_CERT_FILE"] = ENV_SSL_CERT_FILE
+                this["PYTHONHOME"] = ENV_PYTHONHOME
+                this["HOME"] = ENV_PYTHONHOME
+                this["TMPDIR"] = appContext.cacheDir.absolutePath
+                selectOwnedPythonConfig(checkNotNull(ENV_PYTHONHOME))
+            }
+            val process = builder.start()
+            try {
+                val deadline = System.nanoTime() + 20_000_000_000L
+                var status: Int? = null
+                while (status == null && System.nanoTime() < deadline) {
+                    status = try { process.exitValue() } catch (_: IllegalThreadStateException) { null }
+                    if (status == null) Thread.sleep(50)
+                }
+                check(status == 0) { "Engine/EJS offline capability check failed or timed out" }
+                return objectMapper.readTree(log.readText().trim().lineSequence().last())["engine"].asText()
+            } finally { process.destroy() }
+        } finally { work.delete(); log.delete() }
     }
 
-    private fun updatePython(appContext: Context, version: String) {
-        update(appContext, pythonLibVersion, version)
+    @Throws(YoutubeDLException::class)
+    fun initPython(appContext: Context, pythonDir: File) {
+        val pythonLib = File(binDir, pythonLibName)
+        try {
+            VerifiedPythonPayload.install(pythonLib, pythonDir, extractAndVerify = { archive, staged ->
+                com.yausername.youtubedl_common.utils.ZipUtils.unzipAndVerify(archive, staged)
+            })
+            update(appContext, pythonLibVersion, "sha256:" + VerifiedEngineReplacement.digest(pythonLib))
+        } catch (e: Exception) {
+            // Retain both the previous directory and failed staging for inspection.
+            throw YoutubeDLException("failed to initialize verified Python payload", e)
+        }
     }
 
     private fun assertInit() {
         check(initialized) { "instance not initialized" }
+        VerifiedEngineReplacement.requireNoIncompleteUpdate(checkNotNull(ytdlpPath))
     }
 
     @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)

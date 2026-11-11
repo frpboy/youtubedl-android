@@ -24,6 +24,7 @@ internal object YoutubeDLUpdater {
     private const val dlpVersionKey = "dlpVersion"
     private const val dlpVersionNameKey = "dlpVersionName"
 
+    @Synchronized
     @Throws(IOException::class, YoutubeDLException::class)
     internal fun update(
         appContext: Context?,
@@ -31,30 +32,23 @@ internal object YoutubeDLUpdater {
     ): UpdateStatus {
         val json = checkForUpdate(appContext!!, youtubeDLChannel)
             ?: return UpdateStatus.ALREADY_UP_TO_DATE
-        val downloadUrl = getDownloadUrl(json)
-        val file = download(appContext, downloadUrl)
-        val ytdlpDir = getYoutubeDLDir(
-            appContext
+        val asset = getDownloadAsset(json)
+        val digest = asset["digest"]?.asText().orEmpty()
+        check(digest.matches(Regex("sha256:[a-f0-9]{64}"))) { "Release asset has no SHA-256 digest" }
+        val binary = File(getYoutubeDLDir(appContext), dlpBinaryName)
+        VerifiedEngineReplacement.replace(
+            installed = binary,
+            expectedSha256 = digest.removePrefix("sha256:"),
+            download = { staged ->
+                FileUtils.copyURLToFile(URL(asset["browser_download_url"].asText()), staged, 5000, 10000)
+            },
+            validate = { candidate -> getInstance().verifyRuntimeEngine(appContext, candidate, getTag(json)) },
         )
-        val binary = File(ytdlpDir, dlpBinaryName)
-        try {
-            /* purge older version */
-            if (ytdlpDir.exists()) FileUtils.deleteDirectory(ytdlpDir)
-            /* install newer version */ytdlpDir.mkdirs()
-            FileUtils.copyFile(file, binary)
-        } catch (e: Exception) {
-            /* if something went wrong restore default version */
-            FileUtils.deleteQuietly(ytdlpDir)
-            getInstance().init_ytdlp(appContext, ytdlpDir)
-            throw YoutubeDLException(e)
-        } finally {
-            file.delete()
-        }
         updateSharedPrefs(appContext, getTag(json), getName(json))
         return UpdateStatus.DONE
     }
 
-    private fun updateSharedPrefs(appContext: Context, tag: String, name: String) {
+    internal fun updateSharedPrefs(appContext: Context, tag: String, name: String) {
         update(appContext, dlpVersionKey, tag)
         update(appContext, dlpVersionNameKey, name)
     }
@@ -79,25 +73,10 @@ internal object YoutubeDLUpdater {
     }
 
     @Throws(YoutubeDLException::class)
-    private fun getDownloadUrl(json: JsonNode): String {
+    private fun getDownloadAsset(json: JsonNode): JsonNode {
         val assets = json["assets"] as ArrayNode
-        var downloadUrl = ""
-        for (asset in assets) {
-            if (YoutubeDL.ytdlpBin == asset["name"].asText()) {
-                downloadUrl = asset["browser_download_url"].asText()
-                break
-            }
-        }
-        if (downloadUrl.isEmpty()) throw YoutubeDLException("unable to get download url")
-        return downloadUrl
-    }
-
-    @Throws(IOException::class)
-    private fun download(appContext: Context, url: String): File {
-        val downloadUrl = URL(url)
-        val file = File.createTempFile(dlpBinaryName, null, appContext.cacheDir)
-        FileUtils.copyURLToFile(downloadUrl, file, 5000, 10000)
-        return file
+        return assets.firstOrNull { it["name"].asText() == YoutubeDL.ytdlpBin }
+            ?: throw YoutubeDLException("unable to get engine release asset")
     }
 
     private fun getYoutubeDLDir(appContext: Context): File {

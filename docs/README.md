@@ -8,6 +8,6 @@ Call YoutubeDL.init(context) and FFmpeg.init(context) after supplying the app's 
 
 The AARs intentionally contain no native libraries. The app must package its exact, source-qualified Python launcher/archive, FFmpeg/FFprobe/archive and QuickJS executable. Current Seali also owns the engine/EJS/runtime capability and input-hash checks outside these modules. Do not substitute inherited upstream JNI libraries or assume that compiling this wrapper qualifies native execution. Aria2 is not supplied or connected.
 
-library includes the V6 baseline yt-dlp raw resource unchanged. Its SHA256 and every source file are recorded in the baseline source bindings. Source changes from Seali's pending integrity updater and Stable/Nightly policy work must be reviewed and rebound before public release. This baseline staging version is not the approved runtime release.
+library includes the V6 baseline yt-dlp raw resource unchanged. Its SHA256 and every source file are recorded in the baseline source bindings. Reviewed integrity/restart-recovery source from Seali6e6c6e1a is included. The checker asset hash is verified in the AAR. Stable/Nightly consent is app-owned; this wrapper does not authorize it. This staging version is not an approved native/runtime release.
 
 The supplied sources JAR contains the actual Kotlin source used to build each AAR. This documentation JAR contains this API guide rather than generated Kotlin HTML. Upstream GPL-3.0 license and attribution are preserved.

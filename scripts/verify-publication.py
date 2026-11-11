@@ -6,6 +6,7 @@ p.add_argument('--repository',required=True,type=pathlib.Path)
 p.add_argument('--group',required=True)
 p.add_argument('--version',required=True)
 p.add_argument('--engine-sha256',required=True)
+p.add_argument('--engine-checker-sha256',required=True)
 a=p.parse_args(); ns={'m':'http://maven.apache.org/POM/4.0.0'}; result=[]
 for module in ('common','library','ffmpeg'):
  d=a.repository.joinpath(*a.group.split('.'),module,a.version); stem=f'{module}-{a.version}'
@@ -27,6 +28,7 @@ for module in ('common','library','ffmpeg'):
   assert 'classes.jar' in z.namelist()
   if module=='library':
    assert hashlib.sha256(z.read('res/raw/ytdlp')).hexdigest()==a.engine_sha256, 'Engine resource mismatch'
+   assert hashlib.sha256(z.read('assets/seali-engine/verify-runtime-engine.py')).hexdigest()==a.engine_checker_sha256, 'Engine checker asset mismatch'
  with zipfile.ZipFile(d/(stem+'-sources.jar')) as z:
   assert any(x.endswith('.kt') for x in z.namelist()), 'Actual Kotlin sources absent'
  result.append({'module':module,'aarSha256':hashlib.sha256(aar.read_bytes()).hexdigest()})
