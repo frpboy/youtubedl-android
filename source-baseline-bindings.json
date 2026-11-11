@@ -1,0 +1,158 @@
+{
+  "baselineCommit": "6e6c6e1a8f62f0d45d26cef386d726b145abf209",
+  "baselineTree": "d989b3482317cab099aefd015f367a53b8e118c4",
+  "baselineArchiveSha256": "5cfd514591c2e869772b3a46fa58ea84368485b618de7fe0e1efe4aab5ec9948",
+  "nativePayloads": "Not included; app-owned source and runtime qualification are separate.",
+  "files": [
+    {
+      "file": "common/src/main/AndroidManifest.xml",
+      "sourcePath": "dependencies/frpboy-common/src/main/AndroidManifest.xml",
+      "sha256": "343d5be1ac17cdd45d1a2f2ddc616c509290e655869125a9422a96d88aa66066"
+    },
+    {
+      "file": "common/src/main/java/com/yausername/youtubedl_common/SharedPrefsHelper.kt",
+      "sourcePath": "dependencies/frpboy-common/src/main/java/com/yausername/youtubedl_common/SharedPrefsHelper.kt",
+      "sha256": "119c1d99962141afd220c800c856900f8de6df587d22f382d7087bdfdffd3677"
+    },
+    {
+      "file": "common/src/main/java/com/yausername/youtubedl_common/utils/ZipUtils.kt",
+      "sourcePath": "dependencies/frpboy-common/src/main/java/com/yausername/youtubedl_common/utils/ZipUtils.kt",
+      "sha256": "713de7ac2453508ed680f1fe30ed7bcbd5c0f71716fdeece0ae600c4ee4cbe4d"
+    },
+    {
+      "file": "library/src/main/AndroidManifest.xml",
+      "sourcePath": "dependencies/frpboy-library/src/main/AndroidManifest.xml",
+      "sha256": "343d5be1ac17cdd45d1a2f2ddc616c509290e655869125a9422a96d88aa66066"
+    },
+    {
+      "file": "library/src/main/assets/seali-engine/verify-runtime-engine.py",
+      "sourcePath": "dependencies/frpboy-library/src/main/assets/seali-engine/verify-runtime-engine.py",
+      "sha256": "6379544c47a876ec6a20e36bf67e1d263fbe6b891d2ec7ec6e82bdd18c65449c"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/DownloadProgressCallback.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/DownloadProgressCallback.kt",
+      "sha256": "757517eaad7c3fae0179a620ad76094106ef213845d04f61dcce39c12e7427db"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/OwnedInvocation.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/OwnedInvocation.kt",
+      "sha256": "6488812c9c25868c14b2d0975589d644494cff11295d35405fd25b7c0c6192ce"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/OwnedPythonConfig.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/OwnedPythonConfig.kt",
+      "sha256": "636f34936a813343a73f299276b81c2e94d0ea3585264ca87ba37165a416e0b5"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/StreamGobbler.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/StreamGobbler.kt",
+      "sha256": "902c9ca6fb2c253321d7f7d8c9f9f2c1d1e7b18e3de04da7830d2e9bd0c9a8b5"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/StreamProcessExtractor.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/StreamProcessExtractor.kt",
+      "sha256": "958580b131143d6cc8ad94352250f2b9478e133198b8fbf169f353923bf493c4"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/VerifiedEngineReplacement.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/VerifiedEngineReplacement.kt",
+      "sha256": "d21e97e60228ccc53402fd500fe490f3bacfe809995f4b7a6789eb19fd0dc63a"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/VerifiedPythonPayload.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/VerifiedPythonPayload.kt",
+      "sha256": "0de29fdbbf3f58b6a379bcab61a334f498ddb53869afdaa17ee089f22fc54116"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/YoutubeDL.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/YoutubeDL.kt",
+      "sha256": "ff4a727cc2424c2dc3a534ee3fd04e96737f4c5326d666a953c3b224ff574ac4"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/YoutubeDLException.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/YoutubeDLException.kt",
+      "sha256": "e9a51bfd3a8e95eb27d9ede338f025dad699b03b11ce69ca783ee5e05161bee9"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/YoutubeDLOptions.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/YoutubeDLOptions.kt",
+      "sha256": "7780f870f4b2819d9c77353c980ad83cecf1a9067e1c03dac1510f4215261a7c"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/YoutubeDLRequest.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/YoutubeDLRequest.kt",
+      "sha256": "c598f2448cfeb0000d2aab5c12f74ee20dc3dfd13932b2954a5115766f44ccb9"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/YoutubeDLResponse.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/YoutubeDLResponse.kt",
+      "sha256": "fac1984fcd8bb35b41d64ea7e9ab48b0c9753d9adcf4d42b0f7c6d011e9295c0"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/YoutubeDLUpdater.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/YoutubeDLUpdater.kt",
+      "sha256": "cd354978480795d2cbeb090d5b04b47228b1c76bc45c91adde911bd70d7f2c4b"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/mapper/VideoFormat.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/mapper/VideoFormat.kt",
+      "sha256": "de0b48c96b1946e27abaed8bb5c3a702d76fd7363fd1db9f787cbcfdc73b1f91"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/mapper/VideoInfo.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/mapper/VideoInfo.kt",
+      "sha256": "d1867ecb3b368754181aaf07a98846a997033e8ed5caf2346eb0a2162bf535cc"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/mapper/VideoSubtitle.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/mapper/VideoSubtitle.kt",
+      "sha256": "8b4de0bda8cd4ad78d646e620e662c5682624b0a7553b4516d849ab761dc615e"
+    },
+    {
+      "file": "library/src/main/java/com/yausername/youtubedl_android/mapper/VideoThumbnail.kt",
+      "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/mapper/VideoThumbnail.kt",
+      "sha256": "ae10bd5a970174a32d9fa00d9e3b5d4817aea81517e49c6d56635cadf6bd550e"
+    },
+    {
+      "file": "library/src/main/res/raw/ytdlp",
+      "sourcePath": "dependencies/frpboy-library/src/main/res/raw/ytdlp",
+      "sha256": "e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3"
+    },
+    {
+      "file": "library/src/test/java/com/yausername/youtubedl_android/EngineRestartRecoveryTest.kt",
+      "sourcePath": "dependencies/frpboy-library/src/test/java/com/yausername/youtubedl_android/EngineRestartRecoveryTest.kt",
+      "sha256": "113367df68f0efc258a07855aba4ba30ed029a8d80b92a33f3b4eed78343cc5b"
+    },
+    {
+      "file": "library/src/test/java/com/yausername/youtubedl_android/OwnedInvocationTest.kt",
+      "sourcePath": "dependencies/frpboy-library/src/test/java/com/yausername/youtubedl_android/OwnedInvocationTest.kt",
+      "sha256": "f703d9e50ef90fffd180f8835388bea0c0a14bd025445c0c702507044281126d"
+    },
+    {
+      "file": "library/src/test/java/com/yausername/youtubedl_android/OwnedPythonConfigTest.kt",
+      "sourcePath": "dependencies/frpboy-library/src/test/java/com/yausername/youtubedl_android/OwnedPythonConfigTest.kt",
+      "sha256": "eab1c5cd79ae65ca98baba8155cfaa70aa41c4ded35da3432f9756b78ed99130"
+    },
+    {
+      "file": "library/src/test/java/com/yausername/youtubedl_android/VerifiedEngineReplacementTest.kt",
+      "sourcePath": "dependencies/frpboy-library/src/test/java/com/yausername/youtubedl_android/VerifiedEngineReplacementTest.kt",
+      "sha256": "c17483123ad0b4f77610e2b9d3fa7633ae0b855d4310cc9fc98ce907659da0fb"
+    },
+    {
+      "file": "library/src/test/java/com/yausername/youtubedl_android/VerifiedPythonPayloadTest.kt",
+      "sourcePath": "dependencies/frpboy-library/src/test/java/com/yausername/youtubedl_android/VerifiedPythonPayloadTest.kt",
+      "sha256": "8df62209e9dedf63f846b1932ba9f9409d581a349afd9be3cbd51df9e89eac8a"
+    },
+    {
+      "file": "ffmpeg/src/main/AndroidManifest.xml",
+      "sourcePath": "dependencies/frpboy-ffmpeg/src/main/AndroidManifest.xml",
+      "sha256": "343d5be1ac17cdd45d1a2f2ddc616c509290e655869125a9422a96d88aa66066"
+    },
+    {
+      "file": "ffmpeg/src/main/java/com/yausername/ffmpeg/FFmpeg.kt",
+      "sourcePath": "dependencies/frpboy-ffmpeg/src/main/java/com/yausername/ffmpeg/FFmpeg.kt",
+      "sha256": "1d24f85bbe0d095a7a74107ff48ee1c33168bc0667cd1b32bad099578b6cdbc7"
+    }
+  ]
+}

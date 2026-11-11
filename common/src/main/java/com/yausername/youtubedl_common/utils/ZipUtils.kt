@@ -12,6 +12,41 @@ import java.io.InputStream
 import java.nio.charset.StandardCharsets
 
 object ZipUtils {
+    /** Exact archive-to-extraction content check, including retained internal symlink text. */
+    fun unzipAndVerify(sourceFile: File, targetDirectory: File) {
+        unzip(sourceFile, targetDirectory)
+        fun digest(input: InputStream): ByteArray = input.use {
+            val hash = java.security.MessageDigest.getInstance("SHA-256")
+            val bytes = ByteArray(65536)
+            while (true) {
+                val n = it.read(bytes)
+                if (n < 0) break
+                hash.update(bytes, 0, n)
+            }
+            hash.digest()
+        }
+        ZipFile(sourceFile).use { archive ->
+            val entries = archive.entries
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                val output = File(targetDirectory, entry.name)
+                check(output.canonicalPath.startsWith(targetDirectory.canonicalPath + File.separator)) {
+                    "Extracted Python entry escapes its directory"
+                }
+                if (entry.isDirectory) check(output.isDirectory)
+                else if (entry.isUnixSymlink) {
+                    val expected = archive.getInputStream(entry).use { String(it.readBytes(), StandardCharsets.UTF_8) }
+                    check(Os.readlink(output.absolutePath) == expected) { "Python symlink mismatch" }
+                } else {
+                    check(output.isFile && output.length() == entry.size) { "Python entry missing or wrong size" }
+                    check(digest(archive.getInputStream(entry)).contentEquals(digest(output.inputStream()))) {
+                        "Python extracted entry SHA-256 mismatch"
+                    }
+                }
+            }
+        }
+    }
+
     fun unzip(sourceFile: File?, targetDirectory: File) {
         ZipFile(sourceFile).use { zipFile ->
             val entries = zipFile.entries

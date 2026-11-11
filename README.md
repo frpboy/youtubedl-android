@@ -1,159 +1,39 @@
-# youtubedl-android
-Android library wrapper for [yt-dlp](https://github.com/yt-dlp/yt-dlp) (formerly [youtube-dl](https://github.com/rg3/youtube-dl)) executable
+# FrpBoy Android yt-dlp wrappers
 
-![Maven Central Version](https://img.shields.io/maven-central/v/io.github.junkfood02.youtubedl-android/library)
+Source-built Maven wrappers for Seali, based on yausername/youtubedl-android and the junkfood02 fork. The compatibility Java/Kotlin packages remain unchanged; Maven coordinates identify this fork without erasing upstream authorship.
 
+## Status
 
-## Credits
-*  [youtubedl-java](https://github.com/sapher/youtubedl-java) by [sapher](https://github.com/sapher), youtubedl-android adds android compatibility to youtubedl-java.
+Private staging only. Nothing from this branch has been published to Maven Central. The current source is bound to Seali's owned-wrapper baseline at commit 6e6c6e1a8f62f0d45d26cef386d726b145abf209. The reviewed integrity updater and restart-recovery changes are included byte-for-byte from that remote commit. Stable/Nightly policy remains app-owned. Whole-app/native/device qualification and Java dependency compatibility review remain separate. This staging branch is not an approved runtime release.
 
-<br/>
+The old inherited native binaries, sample app and disconnected aria2 module are not included in this producer. These AARs do not contain a standalone downloader runtime. Seali must continue to supply its separately qualified native payloads and engine/QuickJS/EJS checks. Do not replace them with the old fork's opaque JNI binaries.
 
-## Sample app
-Debug apk for testing can be downloaded from the [releases page](https://github.com/yausername/youtubedl-android/releases)
-<br/>
-<br/>
-![Download Example](https://media.giphy.com/media/fvI9yytF4rxmH7pGHu/giphy.gif)
-![Streaming Example](https://media.giphy.com/media/UoqecxgY9IWbUs5tSR/giphy.gif)
+## Build locally
 
+Use JDK17 and Android SDK36. Set ANDROID_HOME or an untracked local.properties sdk.dir.
 
-
-If you wish to use config file in the download option by using this command `--config-location` you must create a file named `config.txt` inside `youtubedl-android` directory and add the commands for example.
-
-```
---no-mtime
-
--o /sdcard/Download/youtubedl-android/%(title)s.%(ext)s
-
--f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+```sh
+./gradlew :common:publishReleasePublicationToStagingRepository \
+  :library:publishReleasePublicationToStagingRepository \
+  :ffmpeg:publishReleasePublicationToStagingRepository \
+  :library:testReleaseUnitTest
+python3 scripts/verify-publication.py --repository build/staging-deploy \
+  --group io.github.frpboy.youtubedl-android \
+  --version 0.1.0-alpha.7-staging.2 \
+  --engine-sha256 "$(cat engine-sha256.txt)" \
+  --engine-checker-sha256 "$(cat engine-checker-sha256.txt)"
 ```
 
+This writes only to build/staging-deploy. No credentials, remote repository or automatic release is configured. Publication group/version can be overridden using mavenGroup/mavenVersion Gradle properties. The verified Central namespace is io.github.frpboy. Planned module names are common, library and ffmpeg under io.github.frpboy.youtubedl-android; the staging suffix is not a released version.
 
-<br/>
+Each module generates an AAR, exact Kotlin sources JAR, documentation JAR, POM and Gradle metadata. Public release additionally requires signatures, source/security review, verified native/runtime compatibility and final consumer custody checks. CI only builds/tests/stages. It cannot publish.
 
-Checkout [dvd](https://github.com/yausername/dvd), a video downloader app based on this library.
+## API and licenses
 
-Also take a look at [Seal](https://github.com/JunkFood02/Seal), another video/audio downloader app which demonstrates a more advanced and customized use of this library.
+See [the API and runtime contract](docs/README.md), [NOTICE](NOTICE), and [GPL-3.0 license](LICENSE). Historical upstream build notes are preserved under docs/upstream for attribution and context, not as proof of current native-source qualification.
 
-## Installation
+The baseline Java dependencies are deliberately unchanged for compatibility. Their age is not an endorsement: review commons-io2.5, commons-compress1.12 and Jackson2.11.1 before public release. Current Jackson branches require Android26 while this project preserves Android24, so do not silently increase the minimum SDK or claim an untested upgrade safe.
 
-### Gradle
+## API scope
 
-```kotlin
-val youtubedlAndroid = "0.18.1"
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    implementation("io.github.junkfood02.youtubedl-android:library:$youtubedlAndroid")
-    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:$youtubedlAndroid")
-    implementation("io.github.junkfood02.youtubedl-android:aria2c:$youtubedlAndroid") // optional
-}
-```
-
-* Set `android:extractNativeLibs="true"` in your app's manifest.
-* Use `abiFilters 'x86', 'x86_64', 'armeabi-v7a', 'arm64-v8a'` in app/build.gradle, see [sample app](https://github.com/yausername/youtubedl-android/blob/master/app/build.gradle).
-* Use abi splits to reduce apk size, see [sample app](https://github.com/yausername/youtubedl-android/blob/master/app/build.gradle).
-* On Android 10 (API 29), set `android:requestLegacyExternalStorage="true"`.
-* On Android 10+ (API 30 or higher), due to Android's Scoped Storage changes, apps only have the direct access to  `Download/` and `Documents/` . And you can only download the videos into these two directories, see [related issue](https://github.com/yausername/youtubedl-android/issues/174).
-
-## Usage
-
-* yt-dlp executable and python 3.8 are bundled in the library.
-* Initialize library, preferably in `onCreate`.
-
-```java
-try {
-    YoutubeDL.getInstance().init(this);
-} catch (YoutubeDLException e) {
-    Log.e(TAG, "failed to initialize youtubedl-android", e);
-}
-```
-
-
-* Downloading / custom command (A detailed example can be found in the [sample app](app/src/main/java/com/yausername/youtubedl_android_example/DownloadingExampleActivity.java))
-```java
-    File youtubeDLDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "youtubedl-android");
-    YoutubeDLRequest request = new YoutubeDLRequest("https://vimeo.com/22439234");
-    request.addOption("-o", youtubeDLDir.getAbsolutePath() + "/%(title)s.%(ext)s");
-    YoutubeDL.getInstance().execute(request, (progress, etaInSeconds) -> {
-    System.out.println(String.valueOf(progress) + "% (ETA " + String.valueOf(etaInSeconds) + " seconds)");
-    });
-```
-
-* Stopping a previously started download process
-```java
-    YoutubeDLRequest request = new YoutubeDLRequest("https://vimeo.com/22439234");
-    final String processId = "MyProcessDownloadId";
-    YoutubeDL.getInstance().execute(request, (progress, etaInSeconds) -> {
-    System.out.println(String.valueOf(progress) + "% (ETA " + String.valueOf(etaInSeconds) + " seconds)");
-    }, processId);
-    ...
-    YoutubeDL.getInstance().destroyProcessById(processId);
-```
-
-
-* Get stream info (equivalent to `--dump-json` of yt-dlp)
-```java
-    VideoInfo streamInfo = YoutubeDL.getInstance().getInfo("https://vimeo.com/22439234");
-    System.out.println(streamInfo.getTitle());
-```
-
-
-* Get a single playable link containing video+audio
-```java
-    YoutubeDLRequest request = new YoutubeDLRequest("https://youtu.be/Pv61yEcOqpw");
-    request.addOption("-f", "best");
-    VideoInfo streamInfo = YoutubeDL.getInstance().getInfo(request);
-    System.out.println(streamInfo.getUrl());
-```
-
-* yt-dlp supports myriad different options which be seen [here](https://github.com/yt-dlp/yt-dlp)
-
-* yt-dlp binary can be updated from within the library (A example can be found in the [sample app](app/src/main/java/com/yausername/youtubedl_android_example/MainActivity.java))
-```java
-    YoutubeDL.getInstance().updateYoutubeDL(this, updateChannel); // UpdateChannel.NIGHTLY or UpdateChannel.STABLE
-```
-
-## FFmpeg
-If you wish to use ffmpeg features of yt-dlp (e.g. --extract-audio), include and initialize the ffmpeg library.
-```java
-try {
-    YoutubeDL.getInstance().init(this);
-    FFmpeg.getInstance().init(this);
-} catch (YoutubeDLException e) {
-    Log.e(TAG, "failed to initialize youtubedl-android", e);
-}
-```
-
-## Aria2c
-
-This library can make use of aria2c as the external downloader. include and initialize the `aria2c` library.
-```java
-try {
-    YoutubeDL.getInstance().init(this);
-    FFmpeg.getInstance().init(this);
-    Aria2c.getInstance().init(this);
-} catch (YoutubeDLException e) {
-    Log.e(TAG, "failed to initialize youtubedl-android", e);
-}
-```
-and options for the request as below:
-```kotlin
-request.addOption("--downloader", "libaria2c.so");
-```
-
-## Docs
-
-*  Though not required for just using this library, documentation on building python for android can be seen [here](BUILD_PYTHON.md). Same for ffmpeg [here](BUILD_FFMPEG.md). Alternatively, you can use pre-built packages from [here (android5+)](https://packages.termux.dev/apt/termux-main-21/pool/main/) or [here (android7+)](https://packages.termux.dev/apt/termux-main/pool/main/).
-* youtubedl-android uses lazy extractors based build of yt-dlp - [ytdlp-lazy](https://github.com/xibr/ytdlp-lazy) (formerly [youtubedl-lazy](https://github.com/yausername/youtubedl-lazy/))
-* To build `aria2` you need `libc++, c-ares, openssl, libxml2, zlib, ibiconv` it can be found in [here (android5+)](https://packages.termux.dev/apt/termux-main-21/pool/main/) or [here (android7+)](https://packages.termux.dev/apt/termux-main/pool/main/). then follow the method used to build [python](BUILD_PYTHON.md) or [ffmpeg](BUILD_FFMPEG.md).
-
-## Donate
-You can support the project by donating to below addresses.
-| Type  | Address |
-| ------------- | ------------- |
-| <img src="https://en.bitcoin.it/w/images/en/2/29/BC_Logo_.png" alt="Bitcoin" width="50"/>  | bc1qw3g7grh6dxk69mzwjmewanj9gj2ycc5mju5dc4  |
-| <img src="https://www.getmonero.org/press-kit/symbols/monero-symbol-480.png" alt="Monero" width="50"/>  | 49SQgJTxoifhRB1vZGzKwUXUUNPMsrsxEacZ8bRs5tqeFgxFUHyDFBiUYh3UBRLAq355tc2694gbX9LNT7Ho7Vch2XEP4n4  |
+This preserves the current Seali wrapper API, not every historical upstream API. Relative to the old fork, the execute overload with redirectErrorStream is removed; destroyProcessById cancels its owned invocation rather than an arbitrary child process tree; external QuickJS option injection and the old FFmpeg99-percent progress heuristic are removed. Callers outside Seali must review these differences. The reviewed wrapper adds recordVerifiedEngineVersion, recoverInterruptedEngine and verifyRecoveredEngine, plus verified archive extraction and restart recovery. The Python checker asset in the AAR is part of the qualified source/content binding.
