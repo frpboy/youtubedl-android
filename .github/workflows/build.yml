@@ -26,3 +26,32 @@ jobs:
         run: ./gradlew --no-daemon :common:publishReleasePublicationToStagingRepository :library:publishReleasePublicationToStagingRepository :ffmpeg:publishReleasePublicationToStagingRepository :library:testReleaseUnitTest
       - name: Verify wrapper publication and engine resource binding
         run: python3 scripts/verify-publication.py --repository build/staging-deploy --group io.github.frpboy.youtubedl-android --version 0.1.0-alpha.7-staging.2 --engine-sha256 "$(cat engine-sha256.txt)" --engine-checker-sha256 "$(cat engine-checker-sha256.txt)"
+      - name: Prepare qualification-only Maven repository and manifest
+        run: |
+          python3 - <<'PYTHON'
+          import hashlib, json, os, pathlib, shutil, subprocess
+          root = pathlib.Path('build/qualification-transport')
+          assert not root.exists(), 'Transport directory must be fresh'
+          version = '0.1.0-alpha.7-staging.2'
+          records = []
+          for module in ('common', 'library', 'ffmpeg'):
+              rel = pathlib.Path('io/github/frpboy/youtubedl-android') / module / version
+              for suffix in ('.aar', '.pom', '.module', '-sources.jar', '-javadoc.jar'):
+                  name = module + '-' + version + suffix
+                  source = pathlib.Path('build/staging-deploy') / rel / name
+                  assert source.is_file() and not source.is_symlink(), source
+                  target = root / 'maven' / rel / name
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copyfile(source, target)
+                  records.append({'path': target.relative_to(root).as_posix(), 'sha256': hashlib.sha256(target.read_bytes()).hexdigest(), 'bytes': target.stat().st_size})
+          manifest = {'qualificationOnly': True, 'sourceCommit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(), 'workflowSha': os.environ['GITHUB_SHA'], 'runId': os.environ['GITHUB_RUN_ID'], 'runAttempt': os.environ['GITHUB_RUN_ATTEMPT'], 'baseline': json.loads(pathlib.Path('source-baseline-bindings.json').read_text()), 'files': records}
+          (root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PYTHON
+      - name: Retain qualification-only Maven repository
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: owned-maven-qualification-${{ github.sha }}
+          path: build/qualification-transport/
+          if-no-files-found: error
+          retention-days: 7
+          include-hidden-files: false
