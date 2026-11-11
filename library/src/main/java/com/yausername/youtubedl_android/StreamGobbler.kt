@@ -21,7 +21,7 @@ internal class StreamGobbler(private val buffer: StringBuffer, private val strea
                 buffer.append(nextChar.toChar())
             }
         } catch (e: IOException) {
-            Log.e(TAG, "failed to read stream", e)
+            if (BuildConfig.DEBUG) Log.e(TAG, "failed to read stream", e)
         }
     }
 

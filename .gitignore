@@ -14,3 +14,9 @@
 .externalNativeBuild
 target
 /buildSrc/build
+# Local staging, SDK paths and credentials
+local.properties
+.gradle/
+**/build/
+*.asc
+!docs/public-key.asc

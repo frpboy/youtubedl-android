@@ -3,13 +3,16 @@ package com.yausername.youtubedl_android
 import android.content.Context
 import android.os.Build
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.yausername.youtubedl_android.YoutubeDLException
 import com.yausername.youtubedl_android.mapper.VideoInfo
 import com.yausername.youtubedl_common.SharedPrefsHelper
 import com.yausername.youtubedl_common.SharedPrefsHelper.update
 import com.yausername.youtubedl_common.utils.ZipUtils.unzip
 import org.apache.commons.io.FileUtils
+import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
+import java.io.InputStreamReader
 import java.util.Collections
 import kotlin.collections.set
 
@@ -17,14 +20,13 @@ object YoutubeDL {
     private var initialized = false
     private var pythonPath: File? = null
     private var ffmpegPath: File? = null
-    private var quickJsPath: File? = null
     private var ytdlpPath: File? = null
     private var binDir: File? = null
     private var ENV_LD_LIBRARY_PATH: String? = null
     private var ENV_SSL_CERT_FILE: String? = null
     private var ENV_PYTHONHOME: String? = null
     private var TMPDIR: String = ""
-    private val idProcessMap = Collections.synchronizedMap(HashMap<String, Process>())
+    private val idProcessMap = HashMap<String, OwnedInvocation>()
 
     @Synchronized
     @Throws(YoutubeDLException::class)
@@ -36,7 +38,6 @@ object YoutubeDL {
         binDir = File(appContext.applicationInfo.nativeLibraryDir)
         pythonPath = File(binDir, pythonBinName)
         ffmpegPath = File(binDir, ffmpegBinName)
-        quickJsPath = File(binDir, quickJsBinName)
         val pythonDir = File(packagesDir, pythonDirName)
         val ffmpegDir = File(packagesDir, ffmpegDirName)
         val aria2cDir = File(packagesDir, aria2cDirName)
@@ -121,67 +122,30 @@ object YoutubeDL {
         return request.hasOption("--dump-json") && !out.isEmpty() && request.hasOption("--ignore-errors")
     }
 
-    fun destroyProcessById(id: String): Boolean {
-        if (idProcessMap.containsKey(id)) {
-            val p = idProcessMap[id]
-            var alive = true
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                alive = p!!.isAlive
-            }
-            if (alive) {
-                destroyChildProcesses(id)
-                p?.destroy()
-                idProcessMap.remove(id)
-                return true
-            }
-        }
-        return false
-    }
-
-    private fun destroyChildProcesses(id: String) : Boolean {
-        try {
-            val command = "pstree -p $id | grep -oP '\\(\\K[^\\)]+' | xargs kill"
-            val processBuilder = ProcessBuilder("/system/bin/sh", "-c", command)
-            val process = processBuilder.start()
-            val res = process.waitFor()
-            return res == 0
-        }catch (e: Exception) {
-            return false
-        }
+    fun destroyProcessById(id: String): Boolean = synchronized(idProcessMap) {
+        idProcessMap[id]?.cancel() ?: false
     }
 
     class CanceledException : Exception()
-
-    @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)
-    fun execute(
-        request: YoutubeDLRequest,
-        processId: String? = null,
-        callback: ((Float, Long, String) -> Unit)? = null
-    ): YoutubeDLResponse {
-        return executeImpl(request, processId, false, callback)
-    }
 
     @JvmOverloads
     @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)
     fun execute(
         request: YoutubeDLRequest,
         processId: String? = null,
-        redirectErrorStream: Boolean = false,
         callback: ((Float, Long, String) -> Unit)? = null
     ): YoutubeDLResponse {
-        return executeImpl(request, processId, redirectErrorStream, callback)
-    }
-
-    @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)
-    private fun executeImpl(
-        request: YoutubeDLRequest,
-        processId: String? = null,
-        redirectErrorStream: Boolean = false,
-        callback: ((Float, Long, String) -> Unit)? = null
-    ) : YoutubeDLResponse {
         assertInit()
-        if (processId != null && idProcessMap.containsKey(processId)) throw YoutubeDLException("Process ID already exists")
+        val invocation = try { OwnedInvocation.create(File(TMPDIR)) }
+        catch (e: IOException) { throw YoutubeDLException("Private temporary directory unavailable", e) }
+        if (processId != null) synchronized(idProcessMap) {
+            if (idProcessMap.containsKey(processId)) {
+                invocation.cleanAfterExit()
+                throw YoutubeDLException("Process ID already exists")
+            }
+            idProcessMap[processId] = invocation
+        }
+        try {
         // disable caching unless explicitly requested
         if (!request.hasOption("--cache-dir") || request.getOption("--cache-dir") == null) {
             request.addOption("--no-cache-dir")
@@ -196,8 +160,6 @@ object YoutubeDL {
                 )
         }
 
-        request.addOption("--js-runtimes", "quickjs:${quickJsPath!!.absolutePath}")
-
         /* Set ffmpeg location, See https://github.com/xibr/ytdlp-lazy/issues/1 */
         request.addOption("--ffmpeg-location", ffmpegPath!!.absolutePath)
         val youtubeDLResponse: YoutubeDLResponse
@@ -211,15 +173,14 @@ object YoutubeDL {
         command.addAll(listOf(pythonPath!!.absolutePath, ytdlpPath!!.absolutePath))
         command.addAll(args)
         val processBuilder = ProcessBuilder(command)
-            .redirectErrorStream(redirectErrorStream)
-
         processBuilder.environment().apply {
             this["LD_LIBRARY_PATH"] = ENV_LD_LIBRARY_PATH
             this["SSL_CERT_FILE"] = ENV_SSL_CERT_FILE
             this["PATH"] = System.getenv("PATH") + ":" + binDir!!.absolutePath
             this["PYTHONHOME"] = ENV_PYTHONHOME
             this["HOME"] = ENV_PYTHONHOME
-            this["TMPDIR"] = TMPDIR
+            selectOwnedPythonConfig(checkNotNull(ENV_PYTHONHOME))
+            this["TMPDIR"] = invocation.directory.absolutePath
         }
 
         process = try {
@@ -227,9 +188,7 @@ object YoutubeDL {
         } catch (e: IOException) {
             throw YoutubeDLException(e)
         }
-        if (processId != null) {
-            idProcessMap[processId] = process
-        }
+        invocation.attach(process)
         val outStream = process.inputStream
         val errStream = process.errorStream
         val stdOutProcessor = StreamProcessExtractor(outBuffer, outStream, callback)
@@ -239,25 +198,30 @@ object YoutubeDL {
             stdErrProcessor.join()
             process.waitFor()
         } catch (e: InterruptedException) {
-            process.destroy()
-            if (processId != null) idProcessMap.remove(processId)
+            invocation.cancel()
+            invocation.stopAndWait()
             throw e
         }
         val out = outBuffer.toString()
         val err = errBuffer.toString()
+        if (invocation.wasCancelled()) throw CanceledException()
         if (exitCode > 0) {
-            if (processId != null && !idProcessMap.containsKey(processId))
-                throw CanceledException()
             if (!ignoreErrors(request, out)) {
-                idProcessMap.remove(processId)
                 throw YoutubeDLException(err)
             }
         }
-        idProcessMap.remove(processId)
 
         val elapsedTime = System.currentTimeMillis() - startTime
         youtubeDLResponse = YoutubeDLResponse(command, exitCode, elapsedTime, out, err)
         return youtubeDLResponse
+        } finally {
+            invocation.stopAndWait()
+            // Remove only this reservation; never another concurrent replacement.
+            if (processId != null) synchronized(idProcessMap) {
+                if (idProcessMap[processId] === invocation) idProcessMap.remove(processId)
+            }
+            invocation.cleanAfterExit()
+        }
     }
 
     @Synchronized
@@ -313,7 +277,6 @@ object YoutubeDL {
     private const val pythonDirName = "python"
     private const val ffmpegDirName = "ffmpeg"
     private const val ffmpegBinName = "libffmpeg.so"
-    private const val quickJsBinName = "libqjs.so"
     private const val aria2cDirName = "aria2c"
     const val ytdlpDirName = "yt-dlp"
     const val ytdlpBin = "yt-dlp"

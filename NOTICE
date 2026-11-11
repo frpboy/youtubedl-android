@@ -1,0 +1,7 @@
+This project derives from yausername/youtubedl-android and its junkfood02 fork.
+Upstream copyright and GPL-3.0 license remain applicable. Rahul Muraleedharan's
+frpboy fork packages Seali-compatible source changes; ownership of Maven
+coordinates does not replace upstream authorship or third-party licenses.
+The Python, FFmpeg, QuickJS and other native runtime payloads are not included
+in these wrapper artifacts. Their source, license and release qualification
+are independent requirements owned by the consuming application's release.
