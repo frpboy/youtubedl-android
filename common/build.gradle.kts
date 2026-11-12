@@ -17,8 +17,8 @@ android {
 }
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation("commons-io:commons-io:2.5")
-    implementation("org.apache.commons:commons-compress:1.12")
+    implementation("commons-io:commons-io:2.22.0")
+    implementation("org.apache.commons:commons-compress:1.28.0")
 }
 
 val apiDocumentationJar by tasks.registering(Jar::class) {
