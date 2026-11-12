@@ -18,12 +18,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 3
       - name: Admit exact owner trigger and unchanged preparation source
         env:
           EXPECTED_REF: refs/heads/qualification/api24-stock-modern-20261112
           EXPECTED_ACTOR: frpboy
           SOURCE_COMMIT: b6708c41b1925802cba466697b4b94ffe2a11a81
+          FAILED_OWNER_COMMIT: f78f2d3de8c3250542ae7122f26aee6b4f7c8a3c
         run: |
           python3 - <<'PYTHON'
           import json, os, pathlib, subprocess
@@ -34,11 +35,16 @@ jobs:
           assert len(e['commits'])==1 and e['after']==os.environ['GITHUB_SHA']
           def git(*a): return subprocess.check_output(['git',*a],text=True).strip()
           assert git('rev-parse','HEAD^')==e['before']
+          assert git('rev-parse','HEAD~2')==os.environ['FAILED_OWNER_COMMIT']
+          assert git('show',e['before']+':.qualification/api24-owner-trigger.json')==''
+          assert git('rev-parse',e['before']+':.qualification/api24-owner-trigger.json')=='8b137891791fe96927ad78e64b0aad7bded08bdc'
+          prep=git('diff','--name-status',os.environ['FAILED_OWNER_COMMIT'],e['before']).splitlines()
+          assert prep==['M\t.github/workflows/build.yml','A\tdocs/API24-OWNER-CORRECTION-ROUTE.md'], prep
           changes=git('diff','--name-status',e['before'],e['after']).splitlines()
-          assert changes==['A\t.qualification/api24-owner-trigger.json'], changes
+          assert changes==['M\t.qualification/api24-owner-trigger.json'], changes
           marker=json.loads(pathlib.Path('.qualification/api24-owner-trigger.json').read_text())
           assert marker=={'sourceCommit':os.environ['SOURCE_COMMIT'],'purpose':'stock-api24-api26-runtime-only','ownerStart':True}
-          assert e['head_commit']['message'].splitlines()[0]=='Start reviewed API24 stock runtime experiment'
+          assert e['head_commit']['message'].splitlines()[0]=='Correct marker and start reviewed API24 runtime experiment'
           PYTHON
       - name: Use only independently reviewed immutable experiment source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
