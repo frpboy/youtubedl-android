@@ -57,12 +57,16 @@
     {
       "file": "library/src/main/java/com/yausername/youtubedl_android/VerifiedEngineReplacement.kt",
       "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/VerifiedEngineReplacement.kt",
-      "sha256": "d21e97e60228ccc53402fd500fe490f3bacfe809995f4b7a6789eb19fd0dc63a"
+      "sha256": "cd86d4fdf46c93c1f7b8ce19ddc574279081f30dfeccc70924c3a72e39b6c82d",
+      "priorBindingSha256": "d21e97e60228ccc53402fd500fe490f3bacfe809995f4b7a6789eb19fd0dc63a",
+      "ownedPatchCommit": "9e2693539f9e06d25971ab0d162de9fdccf516b7"
     },
     {
       "file": "library/src/main/java/com/yausername/youtubedl_android/VerifiedPythonPayload.kt",
       "sourcePath": "dependencies/frpboy-library/src/main/java/com/yausername/youtubedl_android/VerifiedPythonPayload.kt",
-      "sha256": "0de29fdbbf3f58b6a379bcab61a334f498ddb53869afdaa17ee089f22fc54116"
+      "sha256": "c11e4405fb3e060e485ce3df0140f9225058f0683012704c330d90d8b5cdb6cc",
+      "priorBindingSha256": "0de29fdbbf3f58b6a379bcab61a334f498ddb53869afdaa17ee089f22fc54116",
+      "ownedPatchCommit": "9e2693539f9e06d25971ab0d162de9fdccf516b7"
     },
     {
       "file": "library/src/main/java/com/yausername/youtubedl_android/YoutubeDL.kt",
@@ -137,12 +141,16 @@
     {
       "file": "library/src/test/java/com/yausername/youtubedl_android/VerifiedEngineReplacementTest.kt",
       "sourcePath": "dependencies/frpboy-library/src/test/java/com/yausername/youtubedl_android/VerifiedEngineReplacementTest.kt",
-      "sha256": "c17483123ad0b4f77610e2b9d3fa7633ae0b855d4310cc9fc98ce907659da0fb"
+      "sha256": "faca0e0fb0976108f9c1fd2eaecbc3849a37707652c2228c39c342d9c71fba33",
+      "priorBindingSha256": "c17483123ad0b4f77610e2b9d3fa7633ae0b855d4310cc9fc98ce907659da0fb",
+      "ownedPatchCommit": "9e2693539f9e06d25971ab0d162de9fdccf516b7"
     },
     {
       "file": "library/src/test/java/com/yausername/youtubedl_android/VerifiedPythonPayloadTest.kt",
       "sourcePath": "dependencies/frpboy-library/src/test/java/com/yausername/youtubedl_android/VerifiedPythonPayloadTest.kt",
-      "sha256": "8df62209e9dedf63f846b1932ba9f9409d581a349afd9be3cbd51df9e89eac8a"
+      "sha256": "6fab2dd38d78b4995fbb683a50570d7fb60ca210bb0d6ad3bbc91047ccf7cadb",
+      "priorBindingSha256": "8df62209e9dedf63f846b1932ba9f9409d581a349afd9be3cbd51df9e89eac8a",
+      "ownedPatchCommit": "9e2693539f9e06d25971ab0d162de9fdccf516b7"
     },
     {
       "file": "ffmpeg/src/main/AndroidManifest.xml",
