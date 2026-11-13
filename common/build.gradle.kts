@@ -7,7 +7,7 @@ android {
     publishing { singleVariant("release") { withSourcesJar() } }
     namespace = "com.yausername.youtubedl_common"
     compileSdk = 36
-    defaultConfig { minSdk = 24 }
+    defaultConfig { minSdk = 26 }
     buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
