@@ -5,7 +5,7 @@ sdk = int(sys.argv[1]); out = pathlib.Path(sys.argv[2]); out.mkdir(parents=True,
 pkg = 'com.frpboy.mavencompat'; serial = None; number = 0
 expected = {'FileUtils.copyInputStreamToFile','FileUtils.copyFile','IOUtils.toString',
  'ZipUtils.unzipAndVerify.symlink','ZipUtils.stream','Jackson.VideoInfo',
- 'Jackson.depthReject','Jackson.releaseTree','FileUtils.deleteDirectory','FileUtils.deleteQuietly'}
+ 'Jackson.depthReject','Jackson.releaseTree','Jackson.updateReadTree','FileUtils.deleteDirectory','FileUtils.deleteQuietly'}
 def adb(*args, check=True, retries=0, timeout=40):
  global number
  cmd = ['adb'] + (['-s', serial] if serial else []) + list(args)
@@ -66,7 +66,7 @@ try:
  assert result is not None, 'no complete runtime result within90polls'
  (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
  stage='assert-result'
- assert result.get('sdk')==sdk and result.get('minSdkContract')==24, result
+ assert result.get('sdk')==sdk and result.get('minSdkContract')==26, result
  checks=result.get('checks',{})
  assert expected==set(checks) and all(checks[k] is True for k in expected), checks
  assert result.get('pass') is True, result
