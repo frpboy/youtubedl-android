@@ -18,9 +18,9 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(project(":common"))
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.11.1")
-    implementation("com.fasterxml.jackson.core:jackson-annotations:2.11.1")
-    implementation("commons-io:commons-io:2.5")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.8")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:2.21")
+    implementation("commons-io:commons-io:2.22.0")
 }
 
 dependencies { testImplementation(libs.junit4) }

@@ -19,7 +19,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(project(":common"))
     implementation(project(":library"))
-    implementation("commons-io:commons-io:2.5")
+    implementation("commons-io:commons-io:2.22.0")
 }
 
 val apiDocumentationJar by tasks.registering(Jar::class) {
