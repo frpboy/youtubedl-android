@@ -70,8 +70,8 @@ class SmokeActivity : Activity() {
    val mapper=ObjectMapper()
    val original=mapper.readTree("{\"id\":\"orig\",\"title\":\"old\",\"view_count\":1}")
    val update=mapper.readTree("{\"title\":\"new\"}")
-   val merged=mapper.readerForUpdating(original).readValue(update.traverse(),com.fasterxml.jackson.databind.JsonNode::class.java)
-   check(merged["id"].asText()=="orig" && merged["title"].asText()=="new" && merged["view_count"].asInt()==1)
+   val merged:com.fasterxml.jackson.databind.JsonNode=mapper.readerForUpdating(original).readValue(update.traverse())
+   check(merged===original && merged["id"].asText()=="orig" && merged["title"].asText()=="new" && merged["view_count"].asInt()==1)
   }
   probe("FileUtils.deleteDirectory") {
    val delete=File(base,"delete/sub");delete.mkdirs();File(delete,"file").writeText("cleanup")
