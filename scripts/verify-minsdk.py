@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fail closed if any published wrapper module advertises an Android floor below API 26.
-The owned fix uses java.nio.file.Files (API 26+); Rahul approved the Android 8 floor."""
+The owned library uses java.nio.file.Files (API 26+), so the declared floor must not be lower."""
 import pathlib, re, sys
 root = pathlib.Path(__file__).resolve().parent.parent
 bad = []
