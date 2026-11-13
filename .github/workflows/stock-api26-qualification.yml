@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-          ref: a32f76771a619fbd961d666340ec88cf5f1a18a5
+          ref: bf166d38d9aa5b1d97231402d0752d855d45cbec
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
         with:
           distribution: temurin
@@ -56,8 +56,8 @@ jobs:
           echo 'OWFhYjMyNmQ5NDkyODAwOTkxODU0MzYwYWMyNDhmNDkzY2U3ZjdjMzE4MzUxOTMwOWI3OGFjZTllMjQwZjZmNiAgYW5ub3RhdGlvbi1qdm0tMS44LjEuamFyCmFjZTJhMTBkYzhlMmQ1ZmQzNDkyNWVjYWMwM2U0OTg4YjJjMGY4NTE2NTBjOTRiOGNlZjQ5YmExYmQxMTE0NzggIGFubm90YXRpb25zLTEzLjAuamFyCjk4NGNlOWJkNzgwMDU1ZWFmYjhhMTA1YWNhM2Y1MTQ2ODZiZjdiMWI2MjcyZWM3YzY0NWE5OGNlNDBmYzdkYjQgIGNvbGxlY3Rpb24tanZtLTEuNC4yLmphcgo1YzM4ODFlNGY1NTY4NTVlOWM1MzI5MjdlZTBjOWRmZGU5NGNjNjY3NjBkNTgwNWMwMzFhNTk4ODcwNzBhZjVmICBjb21tb25zLWNvZGVjLTEuMTkuMC5qYXIKZTE1MjI5NDUyMTg0NTZmMzY0OWEzOWJjNGFmZDcwY2U0YmQ0NjYyMjE1MTlkYmE3ZDM3OGYyMTQxYTQ2NDJjYSAgY29tbW9ucy1jb21wcmVzcy0xLjI4LjAuamFyCjJiOWE3YjFmNzI2ZmI4NjIxNmRiZDJjODMyMWVhYmUwMjIxZGJkNWIxYmU4MWMxOGUxY2I1MzgxMWIxMDQ3NTggIGNvbW1vbnMtaW8tMi4yMi4wLmphcgo0ZWVlYWU4ZDIwYzA3OGFiYjY0YjAxNWVjMTU4YWRkMzgzYWM1ODE1NzFjZGRjNDVjNjhmMGM5YWUwMjMwNzIwICBjb21tb25zLWxhbmczLTMuMTguMC5qYXIKMGNlMDY3YzUxNGEwZDEwNDlkMWJlYmRmNzA5ZTM0NGVkMzI2NmZlOTc0NDI3NTY4MjkzN2NkY2IxMzMzNGU5ZSAgY29uY3VycmVudC1mdXR1cmVzLTEuMS4wLmphcgo2NTMwOGEwNmIxYzAwZWUxODZjYjllMTkzMjEzODNmMDQzYjk5MzgxM2YxNTIyYzQ3ZjRhM2UzMzAzYmRiYTQxICBjb3JlLWNvbW1vbi0yLjIuMC5qYXIKNTNjYTA4NWY0YTE1MGY3MDNmNDllMWFhYmQ5MzViZDAzYjQzZTFlYTNkNTVkMTM1NDM4MjkyYWYyMmNlZjU2YiAgamFja3Nvbi1hbm5vdGF0aW9ucy0yLjIxLmphcgo2MDRlZjc3NjUwMTNkYWY1Y2RlMTkyZTQwYmM0Yzg0MTJjNGNhOTNmNGFhZjdiZjhlOWE2MmZhZDFlMTAyNmJiICBqYWNrc29uLWNvcmUtMi4yMS44LmphcgphZDc3ZjIyODU3MTdlMmYzNGMzMTlkOTg4YjdjODU3ODNhNDdkMGIzM2YzM2E1MDFkMWZjYmYxOTZlNjFiYmFhICBqYWNrc29uLWRhdGFiaW5kLTIuMjEuOC5qYXIKZmIxNjk1OTY2NTlhNTE4MzU3YzRiMmMxNmY0M2RjNzVhYjFjNDk4MDU2NWVkNGI0YTMxN2EwNTBlNWUzOTAwNiAga290bGluLXN0ZGxpYi0yLjAuMjAuamFyCjNmZGMwZWVkNWJjNGI4M2VlOTYyMjc3NDUyMGEyZGIyNTQ3MDM3MGVhY2QxNTgxY2FjMWUzNzcwNGYwOTViMDAgIGtvdGxpbngtY29yb3V0aW5lcy1hbmRyb2lkLTEuNi40LmphcgpjMjRjOGJiMjdiYjMyMGM0YTkzODcxNTAxYTdlNWUwYzYxNjA3NjM4OTA3YjE5N2FlZjY3NTUxM2Q0YzgyMGJlICBrb3RsaW54LWNvcm91dGluZXMtY29yZS1qdm0tMS42LjQuamFyCmYzNDgzMWI2YzcxY2Q4NDRlMWQzNWQxYmU0OWQ1ZTc5NDQ3YzVhYjg1NjM0NjUzMWIxZTg2NzZmZGE3Mzc0YjEgIGxpZmVjeWNsZS1jb21tb24tMi42LjIuamFyCmU0YWQ3NjA3ZTVjMDQ3N2M2Zjg5MGVmMjZhNDljYjhkMWJiNGRmZmI2NTBiYWI0NTAyYWZlZTY0NjQ0ZTMwNjkgIGxpc3RlbmFibGVmdXR1cmUtMS4wLmphcgo=' | base64 -d > build/runtime-evidence/expected-runtime-jars.sha256
           diff -u build/runtime-evidence/expected-runtime-jars.sha256 build/runtime-evidence/runtime-classpath-sha256.txt
           mkdir -p build/runtime-evidence
-          test "$(git rev-parse HEAD)" = a32f76771a619fbd961d666340ec88cf5f1a18a5
-          test "$(git rev-parse HEAD^{tree})" = a5e28df233cee587a0cb070f83b7fe81b6e97b40
+          test "$(git rev-parse HEAD)" = bf166d38d9aa5b1d97231402d0752d855d45cbec
+          test "$(git rev-parse HEAD^{tree})" = c636eae6555e9daa33cf1e2265da01a270c9a0c2
           git rev-parse HEAD > build/runtime-evidence/source-commit.txt
           printf '%s\n' "$GITHUB_SHA" > build/runtime-evidence/dispatch-commit.txt
           printf '%s\n' "$GITHUB_WORKFLOW_REF" > build/runtime-evidence/workflow-ref.txt
