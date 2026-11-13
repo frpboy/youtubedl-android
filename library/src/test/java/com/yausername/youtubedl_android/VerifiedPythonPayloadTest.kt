@@ -53,4 +53,52 @@ class VerifiedPythonPayloadTest {
         assertTrue(called)
         assertEquals(VerifiedEngineReplacement.digest(archive), File(python, ".seali-python-archive-sha256").readText())
     }
+    @Test fun legitimateParentAliasIsAccepted() {
+        val root = Files.createTempDirectory("python-alias-").toFile()
+        try {
+            val real = File(root, "real").apply { mkdir() }
+            val alias = File(root, "alias")
+            Files.createSymbolicLink(alias.toPath(), real.toPath())
+            val archive = File(root, "payload.zip").apply { writeText("new-content") }
+            val python = File(alias, "python")
+            assertTrue(VerifiedPythonPayload.install(archive, python, ::extract))
+            assertEquals("new-content", File(File(real, "python"), "payload").readText())
+        } finally { root.deleteRecursively() }
+    }
+    @Test fun liveLeafSymlinkIsRejected() {
+        val root = Files.createTempDirectory("python-livesymlink-").toFile()
+        try {
+            val real = File(root, "real-python").apply { mkdir() }
+            File(real, "preserved.txt").writeText("must survive")
+            val link = File(root, "python")
+            Files.createSymbolicLink(link.toPath(), real.toPath())
+            val archive = File(root, "payload.zip").apply { writeText("new-content") }
+            val failure = runCatching { VerifiedPythonPayload.install(archive, link, ::extract) }
+            assertTrue(failure.isFailure)
+            assertTrue(failure.exceptionOrNull()!!.message!!.contains("must not be a symlink"))
+            assertEquals("must survive", File(real, "preserved.txt").readText())
+        } finally { root.deleteRecursively() }
+    }
+    @Test fun danglingLeafSymlinkIsRejected() {
+        val root = Files.createTempDirectory("python-danglingsymlink-").toFile()
+        try {
+            val link = File(root, "python")
+            Files.createSymbolicLink(link.toPath(), File(root, "missing-target").toPath())
+            val archive = File(root, "payload.zip").apply { writeText("new-content") }
+            val failure = runCatching { VerifiedPythonPayload.install(archive, link, ::extract) }
+            assertTrue(failure.isFailure)
+            assertTrue(failure.exceptionOrNull()!!.message!!.contains("must not be a symlink"))
+        } finally { root.deleteRecursively() }
+    }
+    @Test fun danglingMarkerSymlinkIsRejected() {
+        val root = Files.createTempDirectory("python-markersymlink-").toFile()
+        try {
+            val python = File(root, "python").apply { mkdir() }
+            Files.createSymbolicLink(File(python, ".seali-python-archive-sha256").toPath(), File(root, "missing-marker-target").toPath())
+            val archive = File(root, "payload.zip").apply { writeText("new-content") }
+            val failure = runCatching { VerifiedPythonPayload.install(archive, python, ::extract) }
+            assertTrue(failure.isFailure)
+            assertTrue(failure.exceptionOrNull()!!.message!!.contains("marker must not be a symlink"))
+        } finally { root.deleteRecursively() }
+    }
 }

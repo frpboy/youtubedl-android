@@ -80,4 +80,55 @@ class VerifiedEngineReplacementTest {
         assertTrue(runCatching { VerifiedEngineReplacement.requireNoIncompleteUpdate(installed) }.isFailure)
         assertEquals("old-engine", root.listFiles()!!.single { it.name.startsWith("yt-dlp.rollback-") }.readText())
     }
+    @Test fun legitimateParentAliasIsAcceptedForReplace() {
+        val root = Files.createTempDirectory("engine-alias-").toFile()
+        try {
+            val real = File(root, "real").apply { mkdir() }
+            val alias = File(root, "alias")
+            Files.createSymbolicLink(alias.toPath(), real.toPath())
+            val installed = File(alias, "yt-dlp").apply { writeText("old-engine") }
+            VerifiedEngineReplacement.replace(installed, newHash(root), { it.writeText("new-engine") }, {})
+            assertEquals("new-engine", File(real, "yt-dlp").readText())
+        } finally { root.deleteRecursively() }
+    }
+    @Test fun danglingInstalledSymlinkIsRejectedForReplace() {
+        val root = Files.createTempDirectory("engine-dangling-").toFile()
+        try {
+            val installed = File(root, "yt-dlp")
+            Files.createSymbolicLink(installed.toPath(), File(root, "missing-target").toPath())
+            val failure = runCatching { VerifiedEngineReplacement.replace(installed, newHash(root), { it.writeText("new-engine") }, {}) }
+            assertTrue(failure.isFailure)
+            assertTrue(failure.exceptionOrNull()!!.message!!.contains("must not be a symlink"))
+        } finally { root.deleteRecursively() }
+    }
+    @Test fun legitimateParentAliasIsAcceptedForRecovery() {
+        val root = Files.createTempDirectory("engine-recovery-alias-").toFile()
+        try {
+            val real = File(root, "real").apply { mkdir() }
+            val alias = File(root, "alias")
+            Files.createSymbolicLink(alias.toPath(), real.toPath())
+            val installed = File(alias, "yt-dlp").apply { writeText("corrupt-engine") }
+            val marker = VerifiedEngineReplacement.pendingMarker(installed).apply { writeText("junk") }
+            val pinned = File(root, "pinned-fixture").apply { writeText("pinned-engine") }
+            val pinnedHash = VerifiedEngineReplacement.digest(pinned).also { pinned.delete() }
+            val recovery = VerifiedEngineReplacement.recover(installed, pinnedHash, { it.writeText("pinned-engine") })
+            assertNotNull(recovery)
+            assertTrue(recovery!!.usedPinnedFallback)
+            assertEquals("pinned-engine", File(real, "yt-dlp").readText())
+            assertFalse(marker.exists())
+        } finally { root.deleteRecursively() }
+    }
+    @Test fun danglingInstalledSymlinkIsRejectedForRecovery() {
+        val root = Files.createTempDirectory("engine-recovery-dangling-").toFile()
+        try {
+            val installed = File(root, "yt-dlp")
+            Files.createSymbolicLink(installed.toPath(), File(root, "missing-target").toPath())
+            VerifiedEngineReplacement.pendingMarker(installed).apply { writeText("junk") }
+            val pinned = File(root, "pinned-fixture").apply { writeText("pinned-engine") }
+            val pinnedHash = VerifiedEngineReplacement.digest(pinned).also { pinned.delete() }
+            val failure = runCatching { VerifiedEngineReplacement.recover(installed, pinnedHash, { it.writeText("pinned-engine") }) }
+            assertTrue(failure.isFailure)
+            assertTrue(failure.exceptionOrNull()!!.message!!.contains("must not be a symlink"))
+        } finally { root.deleteRecursively() }
+    }
 }

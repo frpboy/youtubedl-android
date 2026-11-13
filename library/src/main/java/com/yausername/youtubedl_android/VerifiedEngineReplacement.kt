@@ -3,6 +3,7 @@ package com.yausername.youtubedl_android
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.nio.file.Files
 
 /** Same-directory atomic replacement. Candidate checks never mutate the installed engine. */
 internal object VerifiedEngineReplacement {
@@ -38,11 +39,13 @@ internal object VerifiedEngineReplacement {
         if (!marker.exists() && marker.parentFile?.list()?.contains(marker.name) != true) return null
         require(pinnedSha256.matches(Regex("[a-f0-9]{64}")))
         val parent = installed.parentFile!!.canonicalFile
-        check(installed.absoluteFile == installed.canonicalFile &&
-            (installed.isFile || installed.parentFile?.list()?.contains(installed.name) != true)) {
+        // A symlinked ancestor (Android 8 /data/user/0 -> /data/data) is a legitimate parent alias.
+        val target = File(parent, installed.name)
+        check(!Files.isSymbolicLink(target.toPath()) &&
+            (target.isFile || target.parentFile?.list()?.contains(target.name) != true)) {
             "Recovery engine must not be a symlink or non-file"
         }
-        val lines = if (marker.absoluteFile == marker.canonicalFile && marker.isFile && marker.length() < 1024) {
+        val lines = if (!Files.isSymbolicLink(marker.toPath()) && marker.isFile && marker.length() < 1024) {
             marker.readLines()
         } else emptyList()
         val retainedName = lines.getOrNull(1).orEmpty()
@@ -51,7 +54,7 @@ internal object VerifiedEngineReplacement {
         val validBackup = lines.size == 3 && lines[0] == "seali-engine-update-v1" &&
             lines[2].matches(Regex("[a-f0-9]{64}")) &&
             retainedName.matches(Regex("yt-dlp\\.rollback-[a-f0-9]{64}")) &&
-            backup.absoluteFile == backup.canonicalFile && backup.isFile && digest(backup) == retainedHash
+            !Files.isSymbolicLink(backup.toPath()) && backup.isFile && digest(backup) == retainedHash
         val stage = File.createTempFile(".yt-dlp-recovery-", ".new", parent)
         try {
             val expected = if (validBackup) retainedHash else pinnedSha256
@@ -62,22 +65,22 @@ internal object VerifiedEngineReplacement {
                 FileOutputStream(stage, true).use { it.fd.sync() }
             }
             check(digest(stage) == expected) { "Recovery engine SHA-256 mismatch" }
-            if (installed.isFile) {
-                val currentHash = digest(installed)
+            if (target.isFile) {
+                val currentHash = digest(target)
                 val prior = File(parent, "yt-dlp.rollback-$currentHash")
-                val existingGood = prior.absoluteFile == prior.canonicalFile && prior.isFile && digest(prior) == currentHash
+                val existingGood = !Files.isSymbolicLink(prior.toPath()) && prior.isFile && digest(prior) == currentHash
                 if (!existingGood) {
                     // A corrupt/symlink collision must not block the independent pinned fallback.
                     // Retain the current bytes in a new owned file; never overwrite the collision.
                     val evidence = File.createTempFile("yt-dlp.recovery-evidence-$currentHash-", ".previous", parent)
-                    installed.inputStream().use { input ->
+                    target.inputStream().use { input ->
                         FileOutputStream(evidence).use { output -> input.copyTo(output); output.fd.sync() }
                     }
                     check(digest(evidence) == currentHash) { "Recovery evidence hash mismatch" }
                 }
             }
-            check(move(stage, installed)) { "Cannot atomically restore engine" }
-            check(digest(installed) == expected) { "Restored engine SHA-256 mismatch" }
+            check(move(stage, target)) { "Cannot atomically restore engine" }
+            check(digest(target) == expected) { "Restored engine SHA-256 mismatch" }
             check(removeMarker(marker)) { "Recovered engine but cannot clear update journal; retry recovery on restart" }
             return Recovery(expected, !validBackup)
         } finally { stage.delete() }
@@ -93,10 +96,12 @@ internal object VerifiedEngineReplacement {
         require(expectedSha256.matches(Regex("[a-f0-9]{64}"))) { "Release asset SHA-256 is required" }
         val parent = installed.parentFile!!.canonicalFile
         check(parent.isDirectory) { "Engine directory is missing" }
-        check(installed.absoluteFile == installed.canonicalFile) { "Engine must not be a symlink" }
-        requireNoIncompleteUpdate(installed)
-        val marker = pendingMarker(installed)
-        check(marker.absoluteFile == marker.canonicalFile) { "Update marker must not be a symlink" }
+        // A symlinked ancestor (Android 8 /data/user/0 -> /data/data) is a legitimate parent alias.
+        val target = File(parent, installed.name)
+        check(!Files.isSymbolicLink(target.toPath())) { "Engine must not be a symlink" }
+        requireNoIncompleteUpdate(target)
+        val marker = pendingMarker(target)
+        check(!Files.isSymbolicLink(marker.toPath())) { "Update marker must not be a symlink" }
         val staged = File.createTempFile(".yt-dlp-update-", ".new", parent)
         var backup: File? = null
         var swapped = false
@@ -105,14 +110,14 @@ internal object VerifiedEngineReplacement {
             FileOutputStream(staged, true).use { it.fd.sync() }
             check(digest(staged) == expectedSha256) { "Release asset SHA-256 mismatch" }
             validate(staged)
-            if (installed.exists()) {
-                val oldHash = digest(installed)
+            if (target.exists()) {
+                val oldHash = digest(target)
                 val retained = File(parent, "yt-dlp.rollback-$oldHash")
-                check(retained.absoluteFile == retained.canonicalFile) { "Rollback must not be a symlink" }
+                check(!Files.isSymbolicLink(retained.toPath())) { "Rollback must not be a symlink" }
                 if (!retained.exists()) {
                     val tempBackup = File.createTempFile(".yt-dlp-backup-", ".new", parent)
                     try {
-                        installed.inputStream().use { input ->
+                        target.inputStream().use { input ->
                             FileOutputStream(tempBackup).use { output -> input.copyTo(output); output.fd.sync() }
                         }
                         check(digest(tempBackup) == oldHash) { "Engine rollback copy mismatch" }
@@ -125,10 +130,10 @@ internal object VerifiedEngineReplacement {
             FileOutputStream(marker).use { output ->
                 output.write(("seali-engine-update-v1\n" + (backup?.name ?: "none") + "\n" + expectedSha256 + "\n").toByteArray()); output.fd.sync()
             }
-            check(move(staged, installed)) { "Cannot atomically replace engine" }
+            check(move(staged, target)) { "Cannot atomically replace engine" }
             swapped = true
-            check(digest(installed) == expectedSha256) { "Installed engine SHA-256 mismatch" }
-            validate(installed)
+            check(digest(target) == expectedSha256) { "Installed engine SHA-256 mismatch" }
+            validate(target)
             check(marker.delete()) { "Cannot complete engine update receipt" }
         } catch (failure: Exception) {
             if (swapped && backup != null) {
@@ -138,14 +143,14 @@ internal object VerifiedEngineReplacement {
                         FileOutputStream(restore).use { output -> input.copyTo(output); output.fd.sync() }
                     }
                     check(digest(restore) == digest(backup)) { "Rollback restoration hash mismatch" }
-                    check(move(restore, installed)) { "Engine rollback restore failed; retained copy: ${backup.name}" }
-                    check(digest(installed) == digest(backup)) { "Restored engine hash mismatch" }
+                    check(move(restore, target)) { "Engine rollback restore failed; retained copy: ${backup.name}" }
+                    check(digest(target) == digest(backup)) { "Restored engine hash mismatch" }
                     marker.delete()
                 } catch (rollbackFailure: Exception) {
                     failure.addSuppressed(rollbackFailure)
                 } finally { restore.delete() }
             } else if (swapped) {
-                if (installed.delete()) marker.delete()
+                if (target.delete()) marker.delete()
             } else if (!swapped) {
                 marker.delete()
             }
