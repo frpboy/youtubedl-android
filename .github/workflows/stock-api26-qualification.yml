@@ -9,6 +9,9 @@ name: Stock modern API26 runtime qualification
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'maven/stock-modern-candidate'
 
 permissions:
   contents: read
