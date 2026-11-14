@@ -35,10 +35,10 @@ publishing {
             artifact(apiDocumentationJar)
             pom {
                 name.set("frpboy youtubedl-android " + project.name)
-                description.set("Seali-compatible Android wrapper. Runtime payloads are supplied separately by the app; this artifact is not a standalone downloader.")
+                description.set("Seali-compatible Android wrapper. Native runtime payloads are supplied separately by the app; this artifact is not a standalone downloader.")
                 url.set("https://github.com/frpboy/youtubedl-android")
                 licenses { license { name.set("GNU General Public License v3.0"); url.set("https://www.gnu.org/licenses/gpl-3.0.html") } }
-                developers { developer { id.set("frpboy"); name.set("Rahul Muraleedharan") }; developer { id.set("yausername"); name.set("yausername (upstream)") } }
+                developers { developer { id.set("frpboy"); name.set("frpboy") }; developer { id.set("yausername"); name.set("yausername (upstream)") } }
                 scm { url.set("https://github.com/frpboy/youtubedl-android"); connection.set("scm:git:https://github.com/frpboy/youtubedl-android.git") }
             }
         }
