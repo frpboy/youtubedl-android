@@ -14,6 +14,8 @@ p.add_argument('--gnupghome', type=pathlib.Path)
 a = p.parse_args()
 MODULES = ('common', 'library', 'ffmpeg')
 SUFFIXES = ('.aar', '.pom', '.module', '-sources.jar', '-javadoc.jar')
+if not re.fullmatch(r'io\.github\.frpboy(\.[a-z0-9-]+)*', a.group):
+    sys.exit(f'Refusing group {a.group!r}: must stay inside the verified io.github.frpboy namespace')
 if not re.fullmatch(r'\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?', a.version):
     sys.exit(f'Refusing version {a.version!r}: needs a clean release/prerelease string (no staging/snapshot labels)')
 if a.out.exists():
@@ -39,9 +41,12 @@ with tempfile.TemporaryDirectory() as td:
             entries.append(dst / f.name)
     for f in list(entries):
         if f.name.endswith('.aar'):
-            import zipfile as z
-            names = z.ZipFile(f).namelist()
-            assert not any(n.startswith('jni/') or n.endswith('.so') for n in names), f'Native payload in {f.name}'
+            with zipfile.ZipFile(f) as aar:
+                for info in aar.infolist():
+                    n = info.filename
+                    assert not (n.startswith('jni/') or n.lower().endswith(('.so', '.a', '.dll', '.dylib', '.exe'))), f'Native payload {n} in {f.name}'
+                    head = aar.read(n)[:4] if not info.is_dir() else b''
+                    assert head not in (b'\x7fELF', b'MZ\x90\x00', b'\xcf\xfa\xed\xfe', b'\xca\xfe\xba\xbe'), f'Executable magic in {n} ({f.name})'
         for algo, ext in (('md5', '.md5'), ('sha1', '.sha1'), ('sha256', '.sha256'), ('sha512', '.sha512')):
             f.with_name(f.name + ext).write_text(digest(f, algo) + '\n')
         sig = f.with_name(f.name + '.asc')
