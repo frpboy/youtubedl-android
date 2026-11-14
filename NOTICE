@@ -6,4 +6,5 @@ The Python, FFmpeg, QuickJS and other native runtime payloads are not included
 in these wrapper artifacts. Their source, license and release qualification
 are independent requirements owned by the consuming application's release.
 
-The library AAR bundles the yt-dlp engine as res/raw/ytdlp (yt-dlp 2026.10.26 including the yt_dlp_ejs package). yt-dlp and yt-dlp-ejs are released by their authors under the Unlicense; see https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/LICENSE and https://github.com/yt-dlp/ejs/blob/main/LICENSE. This wrapper does not claim their authorship.
+The library AAR bundles the yt-dlp engine as res/raw/ytdlp (yt-dlp 2026.10.26 including yt-dlp-ejs 0.8.0). yt-dlp and yt-dlp-ejs are released by their authors under the Unlicense; see https://github.com/yt-dlp/yt-dlp/blob/2026.10.26/LICENSE and https://github.com/yt-dlp/ejs/blob/0.8.0/LICENSE. This wrapper does not claim their authorship.
+yt-dlp-ejs in turn contains meriyah 6.1.4 (ISC) and astring 1.9.0 (MIT); their notices are reproduced in THIRD_PARTY_NOTICES.md.

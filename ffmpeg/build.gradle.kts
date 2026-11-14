@@ -27,6 +27,7 @@ val apiDocumentationJar by tasks.registering(Jar::class) {
     from(rootProject.file("docs"))
     from(rootProject.file("LICENSE"))
     from(rootProject.file("NOTICE"))
+    from(rootProject.file("THIRD_PARTY_NOTICES.md"))
 }
 publishing {
     publications {
