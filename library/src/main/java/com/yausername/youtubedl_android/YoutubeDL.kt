@@ -55,7 +55,7 @@ object YoutubeDL {
     }
 
     @Throws(YoutubeDLException::class)
-    fun init_ytdlp(appContext: Context, ytdlpDir: File) {
+    fun init_ytdlp(appContext: Context, ytdlpDir: File) { EngineGuard.exclusive {
         if (!ytdlpDir.exists()) ytdlpDir.mkdirs()
         val ytdlpBinary = File(ytdlpDir, ytdlpBin)
         VerifiedEngineReplacement.requireNoIncompleteUpdate(ytdlpBinary)
@@ -69,7 +69,8 @@ object YoutubeDL {
                 throw YoutubeDLException("failed to initialize", e)
             }
         }
-    }
+        Unit
+    } }
 
     /** Bind preferences only after the app has verified its installed bundled engine bytes. */
     fun recordVerifiedEngineVersion(appContext: Context, version: String) {
@@ -181,7 +182,9 @@ object YoutubeDL {
     fun execute(
         request: YoutubeDLRequest,
         processId: String? = null,
-        callback: ((Float, Long, String) -> Unit)? = null
+        callback: ((Float, Long, String) -> Unit)? = null,
+        expectation: EngineExpectation? = null,
+        cancellation: LaunchCancellation? = null,
     ): YoutubeDLResponse {
         assertInit()
         val invocation = try { OwnedInvocation.create(File(TMPDIR)) }
@@ -194,6 +197,20 @@ object YoutubeDL {
             idProcessMap[processId] = invocation
         }
         try {
+        // A cancel that arrived before registration is remembered by the token and applied here.
+        cancellation?.bind(invocation)
+        if (invocation.wasCancelled()) throw CanceledException()
+        // Run from a private, hashed copy of the engine and plugin files, made under the same guard every
+        // engine writer uses. A later swap of the installed files cannot reach this child.
+        val snapshot = EngineGuard.exclusive {
+            val taken = try { EngineSnapshots.create(ytdlpPath!!, invocation.directory) }
+            catch (e: IOException) { throw YoutubeDLException("Cannot snapshot the engine", e) }
+            if (expectation != null && !taken.matches(expectation)) {
+                throw EngineChangedException("Engine or plugin files changed after they were approved")
+            }
+            taken
+        }
+        if (invocation.wasCancelled()) throw CanceledException()
         // disable caching unless explicitly requested
         if (!request.hasOption("--cache-dir") || request.getOption("--cache-dir") == null) {
             request.addOption("--no-cache-dir")
@@ -218,7 +235,7 @@ object YoutubeDL {
         val startTime = System.currentTimeMillis()
         val args = request.buildCommand()
         val command: MutableList<String?> = ArrayList()
-        command.addAll(listOf(pythonPath!!.absolutePath, ytdlpPath!!.absolutePath))
+        command.addAll(listOf(pythonPath!!.absolutePath, snapshot.engine.absolutePath))
         command.addAll(args)
         val processBuilder = ProcessBuilder(command)
         processBuilder.environment().apply {

@@ -34,6 +34,14 @@ internal object VerifiedEngineReplacement {
         pinnedAsset: (File) -> Unit,
         move: (File, File) -> Boolean = { from, to -> from.renameTo(to) },
         removeMarker: (File) -> Boolean = { it.delete() },
+    ): Recovery? = EngineGuard.exclusive { recoverLocked(installed, pinnedSha256, pinnedAsset, move, removeMarker) }
+
+    private fun recoverLocked(
+        installed: File,
+        pinnedSha256: String,
+        pinnedAsset: (File) -> Unit,
+        move: (File, File) -> Boolean,
+        removeMarker: (File) -> Boolean,
     ): Recovery? {
         val marker = pendingMarker(installed)
         if (!marker.exists() && marker.parentFile?.list()?.contains(marker.name) != true) return null
@@ -110,6 +118,7 @@ internal object VerifiedEngineReplacement {
             FileOutputStream(staged, true).use { it.fd.sync() }
             check(digest(staged) == expectedSha256) { "Release asset SHA-256 mismatch" }
             validate(staged)
+            EngineGuard.exclusive {
             if (target.exists()) {
                 val oldHash = digest(target)
                 val retained = File(parent, "yt-dlp.rollback-$oldHash")
@@ -135,7 +144,10 @@ internal object VerifiedEngineReplacement {
             check(digest(target) == expectedSha256) { "Installed engine SHA-256 mismatch" }
             validate(target)
             check(marker.delete()) { "Cannot complete engine update receipt" }
+            Unit
+            }
         } catch (failure: Exception) {
+            EngineGuard.exclusive {
             if (swapped && backup != null) {
                 val restore = File.createTempFile(".yt-dlp-restore-", ".new", parent)
                 try {
@@ -153,6 +165,8 @@ internal object VerifiedEngineReplacement {
                 if (target.delete()) marker.delete()
             } else if (!swapped) {
                 marker.delete()
+            }
+            Unit
             }
             throw failure
         } finally { staged.delete() }

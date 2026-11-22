@@ -38,9 +38,11 @@ internal class OwnedInvocation private constructor(val directory: File) {
     fun cleanAfterExit(): Boolean {
         val p = synchronized(this) { process }
         if (p != null) try { p.exitValue() } catch (_: IllegalThreadStateException) { return false }
+        // The launch snapshot (engine copy and plugin copy) is ours; remove it without following links.
+        val snapshotGone = EngineSnapshots.remove(directory)
         // No recursive traversal, links, user paths or cache-wide deletion.
         val parent = directory.canonicalFile
-        var clean = true
+        var clean = snapshotGone
         for (f in directory.listFiles() ?: emptyArray()) {
             if (f.canonicalFile.parentFile != parent || f.canonicalFile != f.absoluteFile ||
                 !f.isFile || !f.name.endsWith(".js")) { clean = false; continue }
