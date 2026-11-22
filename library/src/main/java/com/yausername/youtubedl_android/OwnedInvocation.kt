@@ -14,6 +14,18 @@ internal class OwnedInvocation private constructor(val directory: File) {
         process = started
         if (cancelled) started.destroy()
     }
+    /**
+     * Starts the child only if the launch is not cancelled, and records it, in one step under the same lock as
+     * [cancel]. A cancel therefore either arrives first (no child starts) or finds the child already attached
+     * and destroys it. Throws [YoutubeDL.CanceledException] when cancelled first.
+     */
+    @Synchronized fun start(builder: ProcessBuilder): Process {
+        check(process == null)
+        if (cancelled) throw YoutubeDL.CanceledException()
+        val started = builder.start()
+        process = started
+        return started
+    }
     @Synchronized fun cancel(): Boolean {
         if (cancelled) return false
         cancelled = true
@@ -38,9 +50,11 @@ internal class OwnedInvocation private constructor(val directory: File) {
     fun cleanAfterExit(): Boolean {
         val p = synchronized(this) { process }
         if (p != null) try { p.exitValue() } catch (_: IllegalThreadStateException) { return false }
+        // The launch snapshot (engine copy and plugin copy) is ours; remove it without following links.
+        val snapshotGone = EngineSnapshots.remove(directory)
         // No recursive traversal, links, user paths or cache-wide deletion.
         val parent = directory.canonicalFile
-        var clean = true
+        var clean = snapshotGone
         for (f in directory.listFiles() ?: emptyArray()) {
             if (f.canonicalFile.parentFile != parent || f.canonicalFile != f.absoluteFile ||
                 !f.isFile || !f.name.endsWith(".js")) { clean = false; continue }

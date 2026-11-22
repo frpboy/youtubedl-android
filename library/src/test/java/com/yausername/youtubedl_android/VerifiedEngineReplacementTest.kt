@@ -131,4 +131,46 @@ class VerifiedEngineReplacementTest {
             assertTrue(failure.exceptionOrNull()!!.message!!.contains("must not be a symlink"))
         } finally { root.deleteRecursively() }
     }
+
+    @Test fun failedValidationOfTheInstalledEngineDoesNotRestoreOverANewerOwner() = fixture { root, installed ->
+        var checks = 0
+        val marker = VerifiedEngineReplacement.pendingMarker(installed)
+        val result = runCatching {
+            VerifiedEngineReplacement.replace(installed, newHash(root), { it.writeText("new-engine") }, {
+                if (++checks == 2) {
+                    // Another writer takes over the marker while this update is validating.
+                    marker.writeText("someone-else\n")
+                    installed.writeText("newer-owner-engine")
+                    error("post-install validation failed")
+                }
+            })
+        }
+        assertTrue(result.isFailure)
+        assertEquals("newer-owner-engine", installed.readText())
+        assertEquals("someone-else\n", marker.readText())
+    }
+
+    @Test fun secondReplacementRefusesWhileTheFirstOwnsTheMarker() = fixture { root, installed ->
+        val marker = VerifiedEngineReplacement.pendingMarker(installed)
+        var second: Result<Unit>? = null
+        VerifiedEngineReplacement.replace(installed, newHash(root), { it.writeText("new-engine") }, {
+            if (it.name == installed.name && marker.exists()) {
+                second = runCatching { VerifiedEngineReplacement.replace(installed, newHash(root), { f -> f.writeText("new-engine") }, {}) }
+            }
+        })
+        assertTrue(second!!.isFailure)
+        assertEquals("new-engine", installed.readText())
+        assertFalse(marker.exists())
+    }
+
+    @Test fun runtimeValidationRunsWithoutTheGuardHeld() = fixture { root, installed ->
+        var other = false
+        VerifiedEngineReplacement.replace(installed, newHash(root), { it.writeText("new-engine") }, {
+            if (it.name == installed.name) {
+                val t = Thread { EngineGuard.exclusive { other = true } }.apply { start(); join(2000) }
+                assertFalse(t.isAlive)
+            }
+        })
+        assertTrue("another thread could take the guard during runtime validation", other)
+    }
 }
