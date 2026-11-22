@@ -126,7 +126,7 @@ class EngineSnapshotTest {
             VerifiedEngineReplacement.replace(installed, hash, { it.writeText("new-engine"); downloaded.set(true) }, { validated.set(true) })
             finished.set(true)
         }.apply { start() }
-        Thread.sleep(400)
+        waitUntilBlocked(updater)
         assertTrue("download must not wait for the guard", downloaded.get())
         assertTrue("first validation must not wait for the guard", validated.get())
         assertFalse("swap must wait for the guard", finished.get())
@@ -142,9 +142,89 @@ class EngineSnapshotTest {
         assertTrue(holding.await(2, TimeUnit.SECONDS))
         var seen = ""
         val taker = Thread { seen = EngineGuard.exclusive { EngineSnapshots.create(e, tmp.newFolder("inv")).engine.readText() } }.apply { start() }
-        Thread.sleep(300); assertEquals("", seen)
+        waitUntilBlocked(taker)
+        assertEquals("", seen)
         release.countDown(); taker.join(5000); holder.join(2000)
         assertEquals("new-engine", seen)
+    }
+
+    /** Waits until the thread is parked on the guard (or finished), so the assertions that follow are not timing luck. */
+    private fun waitUntilBlocked(t: Thread) {
+        val end = System.nanoTime() + 5_000_000_000L
+        while (t.state != Thread.State.WAITING && t.state != Thread.State.BLOCKED && t.isAlive && System.nanoTime() < end) Thread.sleep(5)
+        assertTrue("thread should be waiting on the guard, was ${t.state}", t.state == Thread.State.WAITING || t.state == Thread.State.BLOCKED)
+    }
+
+    @Test fun layoutViolationsAreYoutubeDLExceptionsNotUncheckedOnes() {
+        val root = tmp.newFolder("root"); val e = engine(root)
+        File(root, "yt-dlp-plugins").writeText("a file, not a folder")
+        assertTrue(runCatching { EngineSnapshots.create(e, tmp.newFolder("i1")) }.exceptionOrNull() is YoutubeDLException)
+        File(root, "yt-dlp-plugins").delete()
+        repeat(65) { plugin(root, "p$it.py", "x$it") }
+        assertTrue(runCatching { EngineSnapshots.measure(e) }.exceptionOrNull() is YoutubeDLException)
+        assertTrue(runCatching { EngineSnapshots.measure(File(root, "missing-engine")) }.exceptionOrNull() is YoutubeDLException)
+    }
+
+    @Test fun unreadablePluginFolderFailsClosedInsteadOfLookingEmpty() {
+        val root = tmp.newFolder("root"); val e = engine(root); val p = plugin(root)
+        val dir = p.parentFile
+        assumeTrue("needs POSIX permissions and a non-root user", dir.setReadable(false) && !dir.canRead())
+        try {
+            assertTrue(runCatching { EngineSnapshots.measure(e) }.exceptionOrNull() is YoutubeDLException)
+        } finally { dir.setReadable(true) }
+    }
+
+    private fun invocation() = OwnedInvocation.create(tmp.newFolder())
+
+    @Test fun launchPathBindsTheTokenAndRefusesAPreCancelledLaunchBeforeAnySnapshot() {
+        val root = tmp.newFolder("root"); val e = engine(root); val inv = invocation()
+        val token = LaunchCancellation(); token.cancel()
+        assertTrue(runCatching { YoutubeDL.snapshotForLaunch(e, inv, token, null) }.exceptionOrNull() is YoutubeDL.CanceledException)
+        assertTrue(inv.wasCancelled())
+        assertFalse(File(inv.directory, "yt-dlp").exists())
+        assertTrue(runCatching { token.bind(inv) }.isFailure) // already bound by the launch path
+    }
+
+    @Test fun launchPathRefusesAnEngineThatDiffersFromTheApprovedExpectation() {
+        val root = tmp.newFolder("root"); val e = engine(root); plugin(root)
+        val approved = EngineSnapshots.measure(e)
+        plugin(root, "p.py", "changed-after-approval")
+        val inv = invocation()
+        assertTrue(runCatching { YoutubeDL.snapshotForLaunch(e, inv, null, approved) }.exceptionOrNull() is EngineChangedException)
+        val ok = YoutubeDL.snapshotForLaunch(e, invocation(), null, EngineSnapshots.measure(e))
+        assertTrue(ok.engine.isFile)
+        assertTrue(inv.cleanAfterExit())
+    }
+
+    @Test fun launchRefusesWhileAnUpdateIsIncomplete() {
+        val root = tmp.newFolder("root"); val e = engine(root)
+        File(root, "yt-dlp.update-incomplete").writeText("retained rollback")
+        val inv = invocation()
+        assertTrue(runCatching { YoutubeDL.snapshotForLaunch(e, inv, null, null) }.exceptionOrNull() is YoutubeDLException)
+        assertFalse(File(inv.directory, "yt-dlp").exists())
+    }
+
+    @Test fun cancelAndStartAreOneStep() {
+        val inv = invocation(); inv.cancel()
+        assertTrue(runCatching { inv.start(ProcessBuilder("/bin/sleep", "5")) }.exceptionOrNull() is YoutubeDL.CanceledException)
+        val inv2 = invocation()
+        val p = inv2.start(ProcessBuilder("/bin/sleep", "5"))
+        assertTrue(inv2.cancel()); assertTrue(inv2.stopAndWait()); assertFalse(p.isAlive)
+        assertTrue(inv2.cleanAfterExit())
+    }
+
+    @Test fun guardTakesAnOsFileLockWhenBoundAndStaysReentrant() {
+        val root = tmp.newFolder("root")
+        EngineGuard.bind(root)
+        try {
+            val result = EngineGuard.exclusive { EngineGuard.exclusive { 42 } }
+            assertEquals(42, result)
+            assertTrue(File(root, ".engine-guard.lock").exists())
+            // Taken and released: a second thread gets it straight away.
+            val done = AtomicBoolean(false)
+            Thread { EngineGuard.exclusive { done.set(true) } }.apply { start(); join(2000) }
+            assertTrue(done.get())
+        } finally { EngineGuard.unbind() }
     }
 
     private fun zipWith(file: File, late: String) {

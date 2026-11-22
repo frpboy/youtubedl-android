@@ -55,7 +55,7 @@ object YoutubeDL {
     }
 
     @Throws(YoutubeDLException::class)
-    fun init_ytdlp(appContext: Context, ytdlpDir: File) { EngineGuard.exclusive {
+    fun init_ytdlp(appContext: Context, ytdlpDir: File) { EngineGuard.bind(ytdlpDir); EngineGuard.exclusive {
         if (!ytdlpDir.exists()) ytdlpDir.mkdirs()
         val ytdlpBinary = File(ytdlpDir, ytdlpBin)
         VerifiedEngineReplacement.requireNoIncompleteUpdate(ytdlpBinary)
@@ -79,6 +79,7 @@ object YoutubeDL {
 
     fun recoverInterruptedEngine(appContext: Context, assetPath: String, pinnedSha256: String): Boolean {
         val installed = File(appContext.noBackupFilesDir, "$baseName/$ytdlpDirName/$ytdlpBin")
+        EngineGuard.bind(installed.parentFile!!)
         return VerifiedEngineReplacement.recover(installed, pinnedSha256, pinnedAsset = { stage ->
             appContext.assets.open(assetPath).use { input -> stage.outputStream().use { input.copyTo(it) } }
         }) != null
@@ -155,10 +156,21 @@ object YoutubeDL {
         return getInfo(request)
     }
 
+    /**
+     * Without an [EngineExpectation] this launches whatever engine is installed (still from a private snapshot).
+     * Callers that approve engine bytes must use the overload below.
+     */
     @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)
-    fun getInfo(request: YoutubeDLRequest): VideoInfo {
+    fun getInfo(request: YoutubeDLRequest): VideoInfo = getInfo(request, null, null)
+
+    @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)
+    fun getInfo(
+        request: YoutubeDLRequest,
+        expectation: EngineExpectation?,
+        cancellation: LaunchCancellation? = null,
+    ): VideoInfo {
         request.addOption("--dump-json")
-        val response = execute(request, null, null)
+        val response = execute(request, null, null, expectation, cancellation)
         val videoInfo: VideoInfo = try {
             objectMapper.readValue(response.out, VideoInfo::class.java)
         } catch (e: IOException) {
@@ -178,6 +190,7 @@ object YoutubeDL {
      */
     @Throws(YoutubeDLException::class)
     fun measureInstalledEngine(): EngineExpectation = EngineGuard.exclusive {
+        requireEngineComplete(checkNotNull(ytdlpPath))
         try { EngineSnapshots.measure(checkNotNull(ytdlpPath)) }
         catch (e: IOException) { throw YoutubeDLException("Cannot measure the engine", e) }
     }
@@ -187,6 +200,45 @@ object YoutubeDL {
     }
 
     class CanceledException : Exception()
+
+    /** Called while holding [EngineGuard]: an update that has not finished or rolled back blocks every launch and measurement. */
+    private fun requireEngineComplete(engine: File) {
+        try { VerifiedEngineReplacement.requireNoIncompleteUpdate(engine) }
+        catch (e: IllegalStateException) { throw YoutubeDLException(e.message, e) }
+    }
+
+    /**
+     * Binds the cancellation token, then snapshots the installed engine and plugins under [EngineGuard] and, when an
+     * [expectation] is given, refuses the launch unless the snapshot matches it. With no expectation the launch is
+     * still self-consistent (one private copy) but nothing approves its bytes. This is the exact path [execute] runs
+     * before it starts a child.
+     */
+    internal fun snapshotForLaunch(
+        engine: File,
+        invocation: OwnedInvocation,
+        cancellation: LaunchCancellation?,
+        expectation: EngineExpectation?,
+    ): EngineSnapshot {
+        // A cancel that arrived before registration is remembered by the token and applied here.
+        cancellation?.bind(invocation)
+        if (invocation.wasCancelled()) throw CanceledException()
+        val snapshot = EngineGuard.exclusive {
+            requireEngineComplete(engine)
+            val taken = try { EngineSnapshots.create(engine, invocation.directory) }
+            catch (e: IOException) { throw YoutubeDLException("Cannot snapshot the engine", e) }
+            if (expectation != null && !taken.matches(expectation)) {
+                throw EngineChangedException("Engine or plugin files changed after they were approved")
+            }
+            taken
+        }
+        if (invocation.wasCancelled()) throw CanceledException()
+        return snapshot
+    }
+
+    private val cleanupFailureCount = java.util.concurrent.atomic.AtomicInteger()
+
+    /** Launches whose private directory could not be removed (child still alive or a file refused). Never reset. */
+    fun launchCleanupFailures(): Int = cleanupFailureCount.get()
 
     @JvmOverloads
     @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)
@@ -208,20 +260,9 @@ object YoutubeDL {
             idProcessMap[processId] = invocation
         }
         try {
-        // A cancel that arrived before registration is remembered by the token and applied here.
-        cancellation?.bind(invocation)
-        if (invocation.wasCancelled()) throw CanceledException()
         // Run from a private, hashed copy of the engine and plugin files, made under the same guard every
         // engine writer uses. A later swap of the installed files cannot reach this child.
-        val snapshot = EngineGuard.exclusive {
-            val taken = try { EngineSnapshots.create(ytdlpPath!!, invocation.directory) }
-            catch (e: IOException) { throw YoutubeDLException("Cannot snapshot the engine", e) }
-            if (expectation != null && !taken.matches(expectation)) {
-                throw EngineChangedException("Engine or plugin files changed after they were approved")
-            }
-            taken
-        }
-        if (invocation.wasCancelled()) throw CanceledException()
+        val snapshot = snapshotForLaunch(checkNotNull(ytdlpPath), invocation, cancellation, expectation)
         // disable caching unless explicitly requested
         if (!request.hasOption("--cache-dir") || request.getOption("--cache-dir") == null) {
             request.addOption("--no-cache-dir")
@@ -259,12 +300,12 @@ object YoutubeDL {
             this["TMPDIR"] = invocation.directory.absolutePath
         }
 
+        // Cancel check and start are one step: a cancel either comes first (no child) or destroys the attached child.
         process = try {
-            processBuilder.start()
+            invocation.start(processBuilder)
         } catch (e: IOException) {
             throw YoutubeDLException(e)
         }
-        invocation.attach(process)
         val outStream = process.inputStream
         val errStream = process.errorStream
         val stdOutProcessor = StreamProcessExtractor(outBuffer, outStream, callback)
@@ -296,7 +337,7 @@ object YoutubeDL {
             if (processId != null) synchronized(idProcessMap) {
                 if (idProcessMap[processId] === invocation) idProcessMap.remove(processId)
             }
-            invocation.cleanAfterExit()
+            if (!invocation.cleanAfterExit()) cleanupFailureCount.incrementAndGet()
         }
     }
 

@@ -113,61 +113,75 @@ internal object VerifiedEngineReplacement {
         val staged = File.createTempFile(".yt-dlp-update-", ".new", parent)
         var backup: File? = null
         var swapped = false
+        var markerText: String? = null
+        // The marker is the ownership token for the window between the swap and the end of validation: while it
+        // exists, every other replacement, recovery and launch refuses (all re-check it under the guard). Only the
+        // writer whose exact marker text is still on disk may restore or clear it.
+        fun markerIsOurs(): Boolean = markerText != null && !Files.isSymbolicLink(marker.toPath()) &&
+            marker.isFile && marker.length() < 1024 && marker.readText() == markerText
         try {
             download(staged)
             FileOutputStream(staged, true).use { it.fd.sync() }
             check(digest(staged) == expectedSha256) { "Release asset SHA-256 mismatch" }
             validate(staged)
             EngineGuard.exclusive {
-            if (target.exists()) {
-                val oldHash = digest(target)
-                val retained = File(parent, "yt-dlp.rollback-$oldHash")
-                check(!Files.isSymbolicLink(retained.toPath())) { "Rollback must not be a symlink" }
-                if (!retained.exists()) {
-                    val tempBackup = File.createTempFile(".yt-dlp-backup-", ".new", parent)
-                    try {
-                        target.inputStream().use { input ->
-                            FileOutputStream(tempBackup).use { output -> input.copyTo(output); output.fd.sync() }
-                        }
-                        check(digest(tempBackup) == oldHash) { "Engine rollback copy mismatch" }
-                        check(move(tempBackup, retained)) { "Cannot retain engine rollback" }
-                    } finally { tempBackup.delete() }
+                // Another writer may have started an update while this one downloaded and validated.
+                requireNoIncompleteUpdate(target)
+                if (target.exists()) {
+                    val oldHash = digest(target)
+                    val retained = File(parent, "yt-dlp.rollback-$oldHash")
+                    check(!Files.isSymbolicLink(retained.toPath())) { "Rollback must not be a symlink" }
+                    if (!retained.exists()) {
+                        val tempBackup = File.createTempFile(".yt-dlp-backup-", ".new", parent)
+                        try {
+                            target.inputStream().use { input ->
+                                FileOutputStream(tempBackup).use { output -> input.copyTo(output); output.fd.sync() }
+                            }
+                            check(digest(tempBackup) == oldHash) { "Engine rollback copy mismatch" }
+                            check(move(tempBackup, retained)) { "Cannot retain engine rollback" }
+                        } finally { tempBackup.delete() }
+                    }
+                    check(digest(retained) == oldHash) { "Retained engine rollback mismatch" }
+                    backup = retained
                 }
-                check(digest(retained) == oldHash) { "Retained engine rollback mismatch" }
-                backup = retained
+                val text = "seali-engine-update-v1\n" + (backup?.name ?: "none") + "\n" + expectedSha256 + "\n"
+                markerText = text
+                FileOutputStream(marker).use { output -> output.write(text.toByteArray()); output.fd.sync() }
+                check(move(staged, target)) { "Cannot atomically replace engine" }
+                swapped = true
+                check(digest(target) == expectedSha256) { "Installed engine SHA-256 mismatch" }
             }
-            FileOutputStream(marker).use { output ->
-                output.write(("seali-engine-update-v1\n" + (backup?.name ?: "none") + "\n" + expectedSha256 + "\n").toByteArray()); output.fd.sync()
-            }
-            check(move(staged, target)) { "Cannot atomically replace engine" }
-            swapped = true
-            check(digest(target) == expectedSha256) { "Installed engine SHA-256 mismatch" }
+            // The runtime check starts a child process, so it runs outside the guard. Launches and other writers
+            // are held off by the marker, not by the lock.
             validate(target)
-            check(marker.delete()) { "Cannot complete engine update receipt" }
-            Unit
+            EngineGuard.exclusive {
+                check(markerIsOurs() && digest(target) == expectedSha256) { "Engine changed during validation; update not completed" }
+                check(marker.delete()) { "Cannot complete engine update receipt" }
             }
         } catch (failure: Exception) {
             EngineGuard.exclusive {
-            val kept = backup
-            if (swapped && kept != null) {
-                val restore = File.createTempFile(".yt-dlp-restore-", ".new", parent)
-                try {
-                    kept.inputStream().use { input ->
-                        FileOutputStream(restore).use { output -> input.copyTo(output); output.fd.sync() }
-                    }
-                    check(digest(restore) == digest(kept)) { "Rollback restoration hash mismatch" }
-                    check(move(restore, target)) { "Engine rollback restore failed; retained copy: ${kept.name}" }
-                    check(digest(target) == digest(kept)) { "Restored engine hash mismatch" }
+                val kept = backup
+                if (!markerIsOurs()) {
+                    // Nothing of ours is installed behind a marker, or someone else owns the marker now: touch nothing.
+                } else if (swapped && kept != null) {
+                    val restore = File.createTempFile(".yt-dlp-restore-", ".new", parent)
+                    try {
+                        kept.inputStream().use { input ->
+                            FileOutputStream(restore).use { output -> input.copyTo(output); output.fd.sync() }
+                        }
+                        check(digest(restore) == digest(kept)) { "Rollback restoration hash mismatch" }
+                        check(move(restore, target)) { "Engine rollback restore failed; retained copy: ${kept.name}" }
+                        check(digest(target) == digest(kept)) { "Restored engine hash mismatch" }
+                        marker.delete()
+                    } catch (rollbackFailure: Exception) {
+                        failure.addSuppressed(rollbackFailure)
+                    } finally { restore.delete() }
+                } else if (swapped) {
+                    if (target.delete()) marker.delete()
+                } else {
                     marker.delete()
-                } catch (rollbackFailure: Exception) {
-                    failure.addSuppressed(rollbackFailure)
-                } finally { restore.delete() }
-            } else if (swapped) {
-                if (target.delete()) marker.delete()
-            } else if (!swapped) {
-                marker.delete()
-            }
-            Unit
+                }
+                Unit
             }
             throw failure
         } finally { staged.delete() }

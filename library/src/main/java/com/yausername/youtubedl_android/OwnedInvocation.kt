@@ -14,6 +14,18 @@ internal class OwnedInvocation private constructor(val directory: File) {
         process = started
         if (cancelled) started.destroy()
     }
+    /**
+     * Starts the child only if the launch is not cancelled, and records it, in one step under the same lock as
+     * [cancel]. A cancel therefore either arrives first (no child starts) or finds the child already attached
+     * and destroys it. Throws [YoutubeDL.CanceledException] when cancelled first.
+     */
+    @Synchronized fun start(builder: ProcessBuilder): Process {
+        check(process == null)
+        if (cancelled) throw YoutubeDL.CanceledException()
+        val started = builder.start()
+        process = started
+        return started
+    }
     @Synchronized fun cancel(): Boolean {
         if (cancelled) return false
         cancelled = true
