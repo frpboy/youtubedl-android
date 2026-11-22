@@ -47,6 +47,11 @@ class LaunchCancellation {
     }
 }
 
+private object DiscardingOutput : java.io.OutputStream() {
+    override fun write(b: Int) {}
+    override fun write(b: ByteArray, off: Int, len: Int) {}
+}
+
 internal class EngineSnapshot(val engine: File, val engineSha256: String, val pluginFiles: Map<String, String>) {
     fun matches(expected: EngineExpectation) = engineSha256 == expected.engineSha256 && pluginFiles == expected.pluginFiles
 }
@@ -64,44 +69,50 @@ internal object EngineSnapshots {
     private const val MAX_DEPTH = 8
     private const val MAX_FILES = 64
 
-    fun create(installedEngine: File, into: File): EngineSnapshot {
+    fun create(installedEngine: File, into: File): EngineSnapshot = scan(installedEngine, into)!!
+
+    /** Same rules as [create], without copying: what a launch would run right now. */
+    fun measure(installedEngine: File): EngineExpectation =
+        scan(installedEngine, null)!!.let { EngineExpectation(it.engineSha256, it.pluginFiles) }
+
+    private fun scan(installedEngine: File, into: File?): EngineSnapshot? {
         val source = File(installedEngine.parentFile!!.canonicalFile, installedEngine.name)
         check(!Files.isSymbolicLink(source.toPath()) && source.isFile) { "Engine must be a regular file" }
-        val engine = File(into, ENGINE_NAME)
-        val engineSha = copyHashing(source, engine)
+        val engine = File(into ?: source.parentFile, ENGINE_NAME)
+        val engineSha = copyHashing(source, if (into == null) null else engine)
         val plugins = sortedMapOf<String, String>()
         val pluginSource = File(source.parentFile, PLUGINS)
         if (Files.isSymbolicLink(pluginSource.toPath())) throw YoutubeDLException("Plugin folder must not be a symlink")
         if (pluginSource.exists()) {
             check(pluginSource.isDirectory) { "Plugin folder is not a directory" }
-            copyTree(pluginSource, File(into, PLUGINS), "", plugins, 0)
+            copyTree(pluginSource, into?.let { File(it, PLUGINS) }, "", plugins, 0)
         }
         return EngineSnapshot(engine, engineSha, plugins)
     }
 
-    private fun copyTree(from: File, to: File, prefix: String, out: MutableMap<String, String>, depth: Int) {
+    private fun copyTree(from: File, to: File?, prefix: String, out: MutableMap<String, String>, depth: Int) {
         check(depth <= MAX_DEPTH) { "Plugin folder is too deep" }
-        check(to.isDirectory || to.mkdir()) { "Cannot create snapshot folder" }
+        if (to != null) check(to.isDirectory || to.mkdir()) { "Cannot create snapshot folder" }
         for (child in from.listFiles().orEmpty().sortedBy { it.name }) {
             check(!Files.isSymbolicLink(child.toPath())) { "Plugin folder must not contain symlinks" }
             val rel = prefix + child.name
             when {
                 child.isDirectory ->
                     // Python's own bytecode cache is not part of the approved layout.
-                    if (child.name != "__pycache__") copyTree(child, File(to, child.name), "$rel/", out, depth + 1)
+                    if (child.name != "__pycache__") copyTree(child, to?.let { File(it, child.name) }, "$rel/", out, depth + 1)
                 child.isFile -> {
                     check(out.size < MAX_FILES) { "Too many plugin files" }
-                    out[rel] = copyHashing(child, File(to, child.name))
+                    out[rel] = copyHashing(child, to?.let { File(it, child.name) })
                 }
                 else -> throw YoutubeDLException("Plugin folder holds an unexpected entry")
             }
         }
     }
 
-    private fun copyHashing(from: File, to: File): String {
+    private fun copyHashing(from: File, to: File?): String {
         val hash = MessageDigest.getInstance("SHA-256")
         from.inputStream().use { input ->
-            FileOutputStream(to).use { output ->
+            (if (to == null) DiscardingOutput else FileOutputStream(to)).use { output ->
                 val buffer = ByteArray(65536)
                 while (true) {
                     val n = input.read(buffer)

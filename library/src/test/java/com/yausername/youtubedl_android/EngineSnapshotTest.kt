@@ -37,6 +37,18 @@ class EngineSnapshotTest {
         assertFalse(s.matches(EngineExpectation("0".repeat(64), s.pluginFiles)))
     }
 
+    @Test fun measureReportsExactlyWhatASnapshotWouldHoldWithoutWritingAnything() {
+        val root = tmp.newFolder("root"); val inv = tmp.newFolder("inv")
+        val e = engine(root); plugin(root)
+        File(File(root, "yt-dlp-plugins/strictcookie/yt_dlp_plugins/postprocessor"), "__pycache__").apply { mkdirs() }.resolve("p.pyc").writeText("x")
+        val before = root.walkTopDown().count()
+        val m = EngineSnapshots.measure(e)
+        assertEquals(before, root.walkTopDown().count())
+        val s = EngineSnapshots.create(e, inv)
+        assertEquals(m.engineSha256, s.engineSha256); assertEquals(m.pluginFiles, s.pluginFiles)
+        assertTrue(s.matches(m))
+    }
+
     @Test fun laterSwapOfInstalledFilesDoesNotChangeTheSnapshot() {
         val root = tmp.newFolder("root"); val inv = tmp.newFolder("inv")
         val e = engine(root); val p = plugin(root)

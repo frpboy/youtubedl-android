@@ -171,6 +171,17 @@ object YoutubeDL {
         return request.hasOption("--dump-json") && !out.isEmpty() && request.hasOption("--ignore-errors")
     }
 
+    /**
+     * Measures the installed engine and plugin files with the same rules a launch snapshot uses (symlinks refused,
+     * __pycache__ ignored, bounded tree). Callers compare or approve this result and pass it to [execute] as the
+     * expectation, so they never re-implement the layout or hashing rules.
+     */
+    @Throws(YoutubeDLException::class)
+    fun measureInstalledEngine(): EngineExpectation = EngineGuard.exclusive {
+        try { EngineSnapshots.measure(checkNotNull(ytdlpPath)) }
+        catch (e: IOException) { throw YoutubeDLException("Cannot measure the engine", e) }
+    }
+
     fun destroyProcessById(id: String): Boolean = synchronized(idProcessMap) {
         idProcessMap[id]?.cancel() ?: false
     }
