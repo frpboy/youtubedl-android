@@ -148,15 +148,16 @@ internal object VerifiedEngineReplacement {
             }
         } catch (failure: Exception) {
             EngineGuard.exclusive {
-            if (swapped && backup != null) {
+            val kept = backup
+            if (swapped && kept != null) {
                 val restore = File.createTempFile(".yt-dlp-restore-", ".new", parent)
                 try {
-                    backup.inputStream().use { input ->
+                    kept.inputStream().use { input ->
                         FileOutputStream(restore).use { output -> input.copyTo(output); output.fd.sync() }
                     }
-                    check(digest(restore) == digest(backup)) { "Rollback restoration hash mismatch" }
-                    check(move(restore, target)) { "Engine rollback restore failed; retained copy: ${backup.name}" }
-                    check(digest(target) == digest(backup)) { "Restored engine hash mismatch" }
+                    check(digest(restore) == digest(kept)) { "Rollback restoration hash mismatch" }
+                    check(move(restore, target)) { "Engine rollback restore failed; retained copy: ${kept.name}" }
+                    check(digest(target) == digest(kept)) { "Restored engine hash mismatch" }
                     marker.delete()
                 } catch (rollbackFailure: Exception) {
                     failure.addSuppressed(rollbackFailure)
