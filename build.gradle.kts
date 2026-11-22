@@ -4,5 +4,5 @@ plugins {
 }
 subprojects {
     group = providers.gradleProperty("mavenGroup").getOrElse("io.github.frpboy.youtubedl-android")
-    version = providers.gradleProperty("mavenVersion").getOrElse("0.1.0-alpha.7")
+    version = providers.gradleProperty("mavenVersion").getOrElse("0.1.0-alpha.8-qual.20261122")
 }
