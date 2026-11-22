@@ -227,6 +227,15 @@ class EngineSnapshotTest {
         } finally { EngineGuard.unbind() }
     }
 
+    @Test fun guardRefusesToMoveToADifferentEngineDirectory() {
+        val a = tmp.newFolder("a"); val b = tmp.newFolder("b")
+        EngineGuard.bind(a)
+        try {
+            EngineGuard.bind(a) // same directory is idempotent
+            assertTrue(runCatching { EngineGuard.bind(b) }.exceptionOrNull() is YoutubeDLException)
+        } finally { EngineGuard.unbind() }
+    }
+
     private fun zipWith(file: File, late: String) {
         ZipOutputStream(file.outputStream()).use { z ->
             z.putNextEntry(ZipEntry("__main__.py"))

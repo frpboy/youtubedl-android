@@ -58,7 +58,7 @@ object YoutubeDL {
     fun init_ytdlp(appContext: Context, ytdlpDir: File) { EngineGuard.bind(ytdlpDir); EngineGuard.exclusive {
         if (!ytdlpDir.exists()) ytdlpDir.mkdirs()
         val ytdlpBinary = File(ytdlpDir, ytdlpBin)
-        VerifiedEngineReplacement.requireNoIncompleteUpdate(ytdlpBinary)
+        requireEngineComplete(ytdlpBinary)
         if (!ytdlpBinary.exists()) {
             try {
                 val inputStream =
@@ -147,7 +147,7 @@ object YoutubeDL {
 
     private fun assertInit() {
         check(initialized) { "instance not initialized" }
-        VerifiedEngineReplacement.requireNoIncompleteUpdate(checkNotNull(ytdlpPath))
+        requireEngineComplete(checkNotNull(ytdlpPath))
     }
 
     @Throws(YoutubeDLException::class, InterruptedException::class, CanceledException::class)

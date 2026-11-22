@@ -28,7 +28,16 @@ object EngineGuard {
      * Names the engine directory so the guard also excludes other processes: the outermost [exclusive] call takes an
      * OS file lock on a lock file in that directory. Without it (unit tests) the guard is per process only.
      */
-    fun bind(engineDirectory: File) { lockFile = File(engineDirectory.canonicalFile, ".engine-guard.lock") }
+    @Synchronized fun bind(engineDirectory: File) {
+        val wanted = File(engineDirectory.canonicalFile, ".engine-guard.lock")
+        val current = lockFile
+        // The guard is process-global and names one engine directory. Silently moving it would shift the
+        // cross-process boundary under callers that already rely on it, so a different directory is refused.
+        if (current != null && current != wanted) {
+            throw YoutubeDLException("Engine guard is already bound to ${current.parentFile}; one engine directory per process")
+        }
+        lockFile = wanted
+    }
     internal fun unbind() { lockFile = null }
 
     fun <T> exclusive(block: () -> T): T {
