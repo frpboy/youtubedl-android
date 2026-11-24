@@ -5,7 +5,11 @@ sdk = int(sys.argv[1]); out = pathlib.Path(sys.argv[2]); out.mkdir(parents=True,
 pkg = 'com.frpboy.mavencompat'; serial = None; number = 0
 expected = {'FileUtils.copyInputStreamToFile','FileUtils.copyFile','IOUtils.toString',
  'ZipUtils.unzipAndVerify.symlink','ZipUtils.stream','Jackson.VideoInfo',
- 'Jackson.depthReject','Jackson.releaseTree','Jackson.updateReadTree','FileUtils.deleteDirectory','FileUtils.deleteQuietly'}
+ 'Jackson.depthReject','Jackson.releaseTree','Jackson.updateReadTree','FileUtils.deleteDirectory','FileUtils.deleteQuietly',
+ 'Engine.installAndInit','Engine.measureInstalledEngine','Engine.launchApprovedExpectation',
+ 'Engine.launchExpectationMismatch','Engine.cancelBeforeStart','Engine.cancelInFlight',
+ 'Engine.snapshotIsolatedFromSwap','Engine.snapshotDiscriminationControl','Engine.incompleteMarkerRefusal','Engine.guardRebindRefusal',
+ 'Engine.cleanupAccounting'}
 def adb(*args, check=True, retries=0, timeout=40):
  global number
  cmd = ['adb'] + (['-s', serial] if serial else []) + list(args)
